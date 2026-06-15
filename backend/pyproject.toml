@@ -23,6 +23,7 @@ dev = [
 ]
 
 [project.scripts]
+docu-chunk = "app.ingestion.cli.chunk_documents:main"
 docu-parse = "app.ingestion.cli.inspect_parser_output:main"
 
 [tool.pytest.ini_options]
