@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -9,25 +10,28 @@ from typing import Any
 from pydantic import ValidationError as PydanticValidationError
 
 from app.core.exceptions import AppError
-from app.ingestion.chunking import ChunkedDocument
-from app.search.embeddings import HashEmbeddingProvider
-from app.search.retrieval import ParentChildRetriever, RetrievalResult
+from app.core.env import load_environment
+from app.embeddings import LocalSentenceTransformerEmbeddingProvider
+from app.indexing import PgVectorChunkIndex
+from app.search.retrieval import RetrievalResult
 
 
 def main(argv: list[str] | None = None) -> int:
     configure_terminal_encoding()
+    load_environment()
     args = build_parser().parse_args(argv)
 
     try:
-        documents = read_chunked_documents(args.input_json)
-        retriever = ParentChildRetriever(
-            embedding_provider=HashEmbeddingProvider(
-                dimensions=args.embedding_dimensions
-            )
+        index = PgVectorChunkIndex(
+            database_url=args.database_url,
+            embedding_provider=LocalSentenceTransformerEmbeddingProvider(
+                model=args.embedding_model,
+                dimensions=args.embedding_dimensions,
+                device=args.embedding_device,
+            ),
         )
-        indexed_count = retriever.index_documents(documents)
         metadata_filters = build_metadata_filters(args)
-        result = retriever.retrieve(
+        result = index.retrieve(
             args.query,
             top_k=args.top_k,
             metadata_filters=metadata_filters,
@@ -43,11 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dump_json:
         print_retrieval_json(result)
     else:
-        print_summary(
-            result,
-            indexed_count=indexed_count,
-            show_parent=args.show_parent,
-        )
+        print_summary(result, show_parent=args.show_parent)
 
     return 0
 
@@ -60,15 +60,14 @@ def configure_terminal_encoding() -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="docu-retrieve",
-        description="Run local parent-child retrieval over chunk JSON.",
+        prog="docu-query",
+        description="Query a PostgreSQL + pgvector parent-child retrieval index.",
     )
     parser.add_argument(
-        "input_json",
-        type=Path,
-        help="ChunkedDocument JSON file produced by docu-chunk --output-json.",
+        "query",
+        help="Search query.",
     )
-    parser.add_argument("query", help="Search query.")
+    parser.add_argument("--database-url", help="PostgreSQL DATABASE_URL.")
     parser.add_argument(
         "--top-k",
         type=int,
@@ -84,10 +83,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional exact file_type filter.",
     )
     parser.add_argument(
+        "--embedding-model",
+        default=os.getenv(
+            "LOCAL_EMBEDDING_MODEL",
+            LocalSentenceTransformerEmbeddingProvider.DEFAULT_MODEL,
+        ),
+        help="Local sentence-transformers embedding model.",
+    )
+    parser.add_argument(
         "--embedding-dimensions",
         type=int,
-        default=384,
-        help="Dimensions for the local hash embedding provider.",
+        default=int(
+            os.getenv(
+                "LOCAL_EMBEDDING_DIMENSIONS",
+                str(LocalSentenceTransformerEmbeddingProvider.DEFAULT_DIMENSIONS),
+            )
+        ),
+        help="Embedding dimensions. Must match the pgvector index.",
+    )
+    parser.add_argument(
+        "--embedding-device",
+        default=os.getenv("LOCAL_EMBEDDING_DEVICE"),
+        help="Optional sentence-transformers device, for example cpu, cuda, or mps.",
     )
     parser.add_argument(
         "--show-parent",
@@ -105,27 +122,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the complete retrieval result JSON to a file.",
     )
     return parser
-
-
-def read_chunked_documents(input_path: Path) -> list[ChunkedDocument]:
-    try:
-        payload = json.loads(input_path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"Unable to read input JSON file: {input_path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Invalid JSON in {input_path}: line {exc.lineno}, column {exc.colno}"
-        ) from exc
-
-    if isinstance(payload, list):
-        if not payload:
-            raise ValueError("input JSON must contain at least one chunked document")
-        return [ChunkedDocument.model_validate(item) for item in payload]
-
-    if isinstance(payload, dict):
-        return [ChunkedDocument.model_validate(payload)]
-
-    raise ValueError("input JSON must be a ChunkedDocument object or list")
 
 
 def build_metadata_filters(args: argparse.Namespace) -> dict[str, Any] | None:
@@ -150,16 +146,12 @@ def print_retrieval_json(result: RetrievalResult) -> None:
     print(json.dumps(result.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
 
-def print_summary(
-    result: RetrievalResult,
-    *,
-    indexed_count: int,
-    show_parent: bool,
-) -> None:
-    print("RETRIEVAL SUMMARY")
+def print_summary(result: RetrievalResult, *, show_parent: bool) -> None:
+    print("PERSISTENT RETRIEVAL SUMMARY")
     print(f"  query: {result.query}")
     print(f"  embedding_model: {result.embedding_model}")
-    print(f"  indexed_child_chunks: {indexed_count}")
+    print(f"  database_url: {result.metadata.get('database_url')}")
+    print(f"  indexed_child_chunks: {result.metadata.get('indexed_child_chunk_count')}")
     print(f"  returned_results: {len(result.results)}")
     print()
 
@@ -192,7 +184,7 @@ def print_error(exc: Exception) -> None:
         return
 
     if isinstance(exc, PydanticValidationError):
-        print("ERROR: INVALID_CHUNKED_DOCUMENT", file=sys.stderr)
+        print("ERROR: INVALID_RETRIEVAL_RESULT", file=sys.stderr)
         print(str(exc), file=sys.stderr)
         return
 

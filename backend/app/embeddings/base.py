@@ -1,5 +1,5 @@
 """
-File: backend/app/search/embeddings/base.py
+File: backend/app/embeddings/base.py
 Purpose: Defines the embedding provider contract used by retrieval.
 """
 

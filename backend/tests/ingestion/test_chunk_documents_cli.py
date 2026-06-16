@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from app.core.constants import BlockType, SupportedFileType
-from app.ingestion.cli.chunk_documents import main
+from app.cli.chunk_documents import main
 from app.ingestion.normalizers import DocumentNormalizer
 from app.ingestion.normalizers.block_schema import (
     DocumentBlock,
