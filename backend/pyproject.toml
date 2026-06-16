@@ -9,12 +9,16 @@ description = "Backend services for document ingestion and search."
 requires-python = ">=3.11"
 dependencies = [
     "markdown-it-py>=3.0,<5.0",
+    "ollama>=0.5,<1.0",
     "openpyxl>=3.1,<4.0",
+    "psycopg[binary]>=3.2,<4.0",
     "pydantic>=2.7,<3.0",
     "pypdf>=5.0,<7.0",
     "PyYAML>=6.0,<7.0",
     "python-docx>=1.1,<2.0",
+    "python-dotenv>=1.0,<2.0",
     "python-pptx>=1.0,<2.0",
+    "sentence-transformers>=3.0,<6.0",
 ]
 
 [project.optional-dependencies]
@@ -23,8 +27,13 @@ dev = [
 ]
 
 [project.scripts]
-docu-chunk = "app.ingestion.cli.chunk_documents:main"
-docu-parse = "app.ingestion.cli.inspect_parser_output:main"
+docu-ingest = "app.cli.ingest_documents:main"
+docu-chunk = "app.cli.chunk_documents:main"
+docu-ask = "app.cli.ask_index:main"
+docu-clear-db = "app.cli.clear_database:main"
+docu-index = "app.cli.index_chunks:main"
+docu-parse = "app.cli.parse_documents:main"
+docu-query = "app.cli.query_index:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
