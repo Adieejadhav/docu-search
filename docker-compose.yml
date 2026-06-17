@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: docu-search-postgres
+    environment:
+      POSTGRES_DB: docusearch
+      POSTGRES_USER: docusearch
+      POSTGRES_PASSWORD: docusearch
+    ports:
+      - "55432:5432"
+    volumes:
+      - docu_search_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docusearch -d docusearch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  docu_search_postgres_data:

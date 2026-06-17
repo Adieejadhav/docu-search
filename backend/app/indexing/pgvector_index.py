@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 import json
 import os
 from time import perf_counter
@@ -32,6 +33,20 @@ class PgVectorIndexStats:
     child_chunk_count: int
     embedding_model: str | None
     embedding_dimensions: int | None
+
+
+@dataclass(frozen=True)
+class IndexedDocumentSummary:
+    id: str
+    title: str
+    file_name: str
+    file_type: str
+    source_path: str | None
+    parent_chunk_count: int
+    child_chunk_count: int
+    created_at: datetime | None
+    updated_at: datetime | None
+    metadata: dict[str, Any]
 
 
 class PgVectorChunkIndex:
@@ -183,6 +198,59 @@ class PgVectorChunkIndex:
         self.initialize()
         with self._connect() as owned_connection:
             return self._stats(owned_connection)
+
+    def list_documents(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[IndexedDocumentSummary]:
+        if limit < 1 or limit > 500:
+            raise RetrievalError(
+                "limit must be between 1 and 500",
+                code="INVALID_DOCUMENT_LIST_LIMIT",
+                details={"limit": limit},
+            )
+        if offset < 0:
+            raise RetrievalError(
+                "offset cannot be negative",
+                code="INVALID_DOCUMENT_LIST_OFFSET",
+                details={"offset": offset},
+            )
+
+        self.initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    d.id,
+                    d.title,
+                    d.file_name,
+                    d.file_type,
+                    d.source_path,
+                    d.metadata,
+                    d.created_at,
+                    d.updated_at,
+                    COALESCE(pc.parent_chunk_count, 0) AS parent_chunk_count,
+                    COALESCE(cc.child_chunk_count, 0) AS child_chunk_count
+                FROM documents d
+                LEFT JOIN (
+                    SELECT document_id, COUNT(*) AS parent_chunk_count
+                    FROM parent_chunks
+                    GROUP BY document_id
+                ) pc ON pc.document_id = d.id
+                LEFT JOIN (
+                    SELECT document_id, COUNT(*) AS child_chunk_count
+                    FROM child_chunks
+                    GROUP BY document_id
+                ) cc ON cc.document_id = d.id
+                ORDER BY d.file_name, d.id
+                LIMIT %s OFFSET %s
+                """,
+                (limit, offset),
+            ).fetchall()
+
+        return [self._document_summary_from_row(row) for row in rows]
 
     def _connect(self) -> Any:
         try:
@@ -589,6 +657,20 @@ class PgVectorChunkIndex:
             embedding_dimensions=(
                 int(embedding_dimensions) if embedding_dimensions is not None else None
             ),
+        )
+
+    def _document_summary_from_row(self, row: dict[str, Any]) -> IndexedDocumentSummary:
+        return IndexedDocumentSummary(
+            id=row["id"],
+            title=row["title"],
+            file_name=row["file_name"],
+            file_type=row["file_type"],
+            source_path=row["source_path"],
+            parent_chunk_count=int(row["parent_chunk_count"]),
+            child_chunk_count=int(row["child_chunk_count"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            metadata=self._loads_json(row["metadata"]),
         )
 
     def _metadata(self, connection: Any) -> dict[str, str]:
