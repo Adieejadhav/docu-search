@@ -1,0 +1,574 @@
+{
+  "query": "satellite mode exception 14 days",
+  "embedding_model": "hash-embedding-384d-v1",
+  "top_k": 5,
+  "results": [
+    {
+      "rank": 1,
+      "score": 0.44072970040484,
+      "child_chunk": {
+        "id": "4aa1e58e4150a16b1e09a65b",
+        "document_id": "0df05fe0bced1f53fc38c1d1",
+        "parent_chunk_id": "e55727cbc23c130e6f9b0300",
+        "chunk_type": "child",
+        "child_index": 118,
+        "text": "Document: 09_aquila_nested_corpus\nSection: $ > evaluation_questions > [2]\n\n{\"expected_answer\": \"Rotate at next successful sync within 14 days\", \"id\": \"EQ-003\", \"question\": \"What is the satellite-mode rotation exception?\", \"source_policy\": \"P-004\"}",
+        "token_count": 28,
+        "source_block_ids": [
+          "ae762b29-937a-4b97-b94c-d15ec1bc543e"
+        ],
+        "source_refs": [],
+        "parent_path": [
+          "$",
+          "evaluation_questions",
+          "[2]"
+        ],
+        "metadata": {
+          "search_level": "child",
+          "structure_key": "json:$ > evaluation_questions > [2]",
+          "structure_title": "[2]",
+          "structure": {
+            "structure": "json_path",
+            "json_path_prefix": "[2]"
+          },
+          "block_orders": [
+            813
+          ],
+          "block_types": [
+            "json"
+          ]
+        }
+      },
+      "parent_chunk": {
+        "id": "e55727cbc23c130e6f9b0300",
+        "document_id": "0df05fe0bced1f53fc38c1d1",
+        "chunk_type": "parent",
+        "parent_index": 118,
+        "text": "Document: 09_aquila_nested_corpus\nSection: $ > evaluation_questions > [2]\n\n{\"expected_answer\": \"Rotate at next successful sync within 14 days\", \"id\": \"EQ-003\", \"question\": \"What is the satellite-mode rotation exception?\", \"source_policy\": \"P-004\"}",
+        "token_count": 28,
+        "source_block_ids": [
+          "ae762b29-937a-4b97-b94c-d15ec1bc543e"
+        ],
+        "source_refs": [],
+        "parent_path": [
+          "$",
+          "evaluation_questions",
+          "[2]"
+        ],
+        "metadata": {
+          "search_level": "parent",
+          "structure_key": "json:$ > evaluation_questions > [2]",
+          "structure_title": "[2]",
+          "structure": {
+            "structure": "json_path",
+            "json_path_prefix": "[2]"
+          },
+          "block_orders": [
+            813
+          ],
+          "block_types": [
+            "json"
+          ]
+        }
+      },
+      "metadata": {
+        "vector_record_id": "4aa1e58e4150a16b1e09a65b",
+        "file_name": "09_aquila_nested_corpus.json",
+        "file_type": "json"
+      }
+    },
+    {
+      "rank": 2,
+      "score": 0.3867423728450417,
+      "child_chunk": {
+        "id": "3234df8911d66e632dcdfba0",
+        "document_id": "a6a2828b51cdda2e6bc6aaa0",
+        "parent_chunk_id": "b4b8cadd94eeecb046c2bd15",
+        "chunk_type": "child",
+        "child_index": 2,
+        "text": "Document: Aquila SmartGrid RAG PPTX Fixture\nSection: Slide 3\n\nPolicy Register\n\nExact policy language appears in cells and should not be summarized away.\n\nID\n\nPolicy\n\nExact Rule\n\nOwner\n\nP-001\n\nCritical outage escalation\n\nP1 incidents affecting >5,000 meters escalate to GridOps within 10 minutes; regulator within 45 minutes if ETA exceeds 2 hours.\n\nGridOps Lead\n\nP-002\n\nData retention\n\nRaw telemetry: 18 months. Hourly aggregates: 7 years. Customer-identifiable exports: 30 days.\n\nData Governance\n\nP-004\n\nPassword rotation exception\n\nGateway service accounts rotate every 90 days, except satellite-mode substations sync within 14 days.\n\nSecurity Engineering\n\nP-005\n\nModel-assisted triage\n\nAI suggestions are advisory; human dispatchers confirm safety classification before crew assignment.\n\nService Desk Manager\n\nStress test: answer extraction must cite the right policy row, not a similar phrase from another slide.\n\nAquila synthetic RAG PPTX fixture | slide 3\n\nExact values: 10 min, 45 min, 14 days, 30 days, 90 days, 18 months, 7 years",
+        "token_count": 150,
+        "source_block_ids": [
+          "abf78acc-6c89-4c25-b668-8cac8509b6be",
+          "d43b6b85-3284-4c2d-b135-423affc1447b",
+          "3c7f1a86-40a4-4c68-81d7-f38b8b3b9d71",
+          "8b15aef1-f9d4-441f-ae65-b329cd2592c9",
+          "e55b7fdc-99a2-463d-8e51-12b91083144b",
+          "d3ce6380-b7c7-4994-ba52-dd85f9a10dd7",
+          "d4a65447-fd9a-4f38-acd9-10ad4f0df77a",
+          "65988678-a786-40eb-83a4-ba3fe7bbfb5c",
+          "f420a381-ba1b-4d5a-8d58-654a569baff0",
+          "b5df1075-2fa1-45bb-8bab-d455fe549f7e",
+          "6d4f6e5a-f3f3-4434-bbd5-8ba7195c3529",
+          "cf2c23ba-83e6-46a6-b5c9-16c33ffaf6fd",
+          "7e6c45ff-0071-4adb-82a9-8db672db2198",
+          "11c85f30-5c1d-49bb-b3b5-07a0604e478e",
+          "9aeec29f-48aa-4056-b6c6-00c824d4406c",
+          "b3119b35-7293-4709-8ad1-c5147df71be6",
+          "3818963c-ca6f-42da-82e7-bf59c7adebb3",
+          "7ef4635b-74f5-4e9d-911d-ad3f2d7ca4f4",
+          "a463fdbf-a214-4ca2-8b27-868cd0b23661",
+          "934f9dde-dcca-420a-9a0a-7a8861ec7154",
+          "6f2d2918-d852-45e1-aba4-238a5b115369",
+          "7ab7209b-b973-4ad4-a584-7a67b4ceb719",
+          "d83fad83-9633-4cf4-ab39-68f870dc6b49",
+          "8d28c206-63b1-4630-a833-5d3e4736e3f5",
+          "068425ba-67f4-4285-bc4e-bc0fccf2a203"
+        ],
+        "source_refs": [
+          "slide:3"
+        ],
+        "parent_path": [
+          "Slide 3"
+        ],
+        "metadata": {
+          "search_level": "child",
+          "structure_key": "slide:3",
+          "structure_title": "Slide 3",
+          "structure": {
+            "structure": "slide",
+            "slide_number": 3
+          },
+          "block_orders": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59
+          ],
+          "block_types": [
+            "paragraph"
+          ]
+        }
+      },
+      "parent_chunk": {
+        "id": "b4b8cadd94eeecb046c2bd15",
+        "document_id": "a6a2828b51cdda2e6bc6aaa0",
+        "chunk_type": "parent",
+        "parent_index": 2,
+        "text": "Document: Aquila SmartGrid RAG PPTX Fixture\nSection: Slide 3\n\nPolicy Register\n\nExact policy language appears in cells and should not be summarized away.\n\nID\n\nPolicy\n\nExact Rule\n\nOwner\n\nP-001\n\nCritical outage escalation\n\nP1 incidents affecting >5,000 meters escalate to GridOps within 10 minutes; regulator within 45 minutes if ETA exceeds 2 hours.\n\nGridOps Lead\n\nP-002\n\nData retention\n\nRaw telemetry: 18 months. Hourly aggregates: 7 years. Customer-identifiable exports: 30 days.\n\nData Governance\n\nP-004\n\nPassword rotation exception\n\nGateway service accounts rotate every 90 days, except satellite-mode substations sync within 14 days.\n\nSecurity Engineering\n\nP-005\n\nModel-assisted triage\n\nAI suggestions are advisory; human dispatchers confirm safety classification before crew assignment.\n\nService Desk Manager\n\nStress test: answer extraction must cite the right policy row, not a similar phrase from another slide.\n\nAquila synthetic RAG PPTX fixture | slide 3\n\nExact values: 10 min, 45 min, 14 days, 30 days, 90 days, 18 months, 7 years",
+        "token_count": 150,
+        "source_block_ids": [
+          "abf78acc-6c89-4c25-b668-8cac8509b6be",
+          "d43b6b85-3284-4c2d-b135-423affc1447b",
+          "3c7f1a86-40a4-4c68-81d7-f38b8b3b9d71",
+          "8b15aef1-f9d4-441f-ae65-b329cd2592c9",
+          "e55b7fdc-99a2-463d-8e51-12b91083144b",
+          "d3ce6380-b7c7-4994-ba52-dd85f9a10dd7",
+          "d4a65447-fd9a-4f38-acd9-10ad4f0df77a",
+          "65988678-a786-40eb-83a4-ba3fe7bbfb5c",
+          "f420a381-ba1b-4d5a-8d58-654a569baff0",
+          "b5df1075-2fa1-45bb-8bab-d455fe549f7e",
+          "6d4f6e5a-f3f3-4434-bbd5-8ba7195c3529",
+          "cf2c23ba-83e6-46a6-b5c9-16c33ffaf6fd",
+          "7e6c45ff-0071-4adb-82a9-8db672db2198",
+          "11c85f30-5c1d-49bb-b3b5-07a0604e478e",
+          "9aeec29f-48aa-4056-b6c6-00c824d4406c",
+          "b3119b35-7293-4709-8ad1-c5147df71be6",
+          "3818963c-ca6f-42da-82e7-bf59c7adebb3",
+          "7ef4635b-74f5-4e9d-911d-ad3f2d7ca4f4",
+          "a463fdbf-a214-4ca2-8b27-868cd0b23661",
+          "934f9dde-dcca-420a-9a0a-7a8861ec7154",
+          "6f2d2918-d852-45e1-aba4-238a5b115369",
+          "7ab7209b-b973-4ad4-a584-7a67b4ceb719",
+          "d83fad83-9633-4cf4-ab39-68f870dc6b49",
+          "8d28c206-63b1-4630-a833-5d3e4736e3f5",
+          "068425ba-67f4-4285-bc4e-bc0fccf2a203"
+        ],
+        "source_refs": [
+          "slide:3"
+        ],
+        "parent_path": [
+          "Slide 3"
+        ],
+        "metadata": {
+          "search_level": "parent",
+          "structure_key": "slide:3",
+          "structure_title": "Slide 3",
+          "structure": {
+            "structure": "slide",
+            "slide_number": 3
+          },
+          "block_orders": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59
+          ],
+          "block_types": [
+            "paragraph"
+          ]
+        }
+      },
+      "metadata": {
+        "vector_record_id": "3234df8911d66e632dcdfba0",
+        "file_name": "06_aquila_pptx_slide_fixture.pptx",
+        "file_type": "pptx"
+      }
+    },
+    {
+      "rank": 3,
+      "score": 0.35112821655086784,
+      "child_chunk": {
+        "id": "f6c5baf1170849fd08dace64",
+        "document_id": "888a8ecfe82649df2aa030aa",
+        "parent_chunk_id": "470069acb279ac278e80ba28",
+        "chunk_type": "child",
+        "child_index": 5,
+        "text": "Document: Document Control\nSection: Policy Register\n\nPolicy Register\n\n| Policy ID | Title | Exact Rule | Owner | Retrieval Difficulty |\n| --- | --- | --- | --- | --- |\n| P-001 | Critical outage escalation | P1 incidents affecting more than 5,000 meters must be escalated to GridOps within 10 minutes and to the regulator within 45 minutes if restoration estimate exceeds 2 hours. | GridOps Lead | Exact numeric or exception retrieval |\n| P-002 | Data retention | Raw telemetry is retained for 18 months. Aggregated hourly metrics are retained for 7 years. Customer-identifiable exports must expire after 30 days. | Data Governance | Exact numeric or exception retrieval |\n| P-003 | Maintenance freeze | No non-emergency transformer maintenance may be started during the June peak-load freeze window unless approved by both Operations and Compliance. | Maintenance Director | Exact numeric or exception retrieval |\n| P-004 | Password rotation exception | Service accounts used by field gateways rotate every 90 days, except offline substations in satellite mode which rotate at the next successful sync within 14 days. | Security Engineering | Exact numeric or exception retrieval |\n| P-005 | Model-assisted triage | AI triage suggestions are advisory. Human dispatchers must confirm safety classification before a field crew is assigned. | Service Desk Manager | Exact numeric or exception retrieval |",
+        "token_count": 229,
+        "source_block_ids": [
+          "74b784cc-da6a-457d-96c8-88072a498243",
+          "2054d357-9365-4a6b-a092-72dd76760f10"
+        ],
+        "source_refs": [],
+        "parent_path": [
+          "Policy Register"
+        ],
+        "metadata": {
+          "search_level": "child",
+          "structure_key": "heading:Policy Register",
+          "structure_title": "Policy Register",
+          "structure": {
+            "structure": "heading_path"
+          },
+          "block_orders": [
+            26,
+            27
+          ],
+          "block_types": [
+            "heading",
+            "table"
+          ]
+        }
+      },
+      "parent_chunk": {
+        "id": "470069acb279ac278e80ba28",
+        "document_id": "888a8ecfe82649df2aa030aa",
+        "chunk_type": "parent",
+        "parent_index": 5,
+        "text": "Document: Document Control\nSection: Policy Register\n\nPolicy Register\n\n| Policy ID | Title | Exact Rule | Owner | Retrieval Difficulty |\n| --- | --- | --- | --- | --- |\n| P-001 | Critical outage escalation | P1 incidents affecting more than 5,000 meters must be escalated to GridOps within 10 minutes and to the regulator within 45 minutes if restoration estimate exceeds 2 hours. | GridOps Lead | Exact numeric or exception retrieval |\n| P-002 | Data retention | Raw telemetry is retained for 18 months. Aggregated hourly metrics are retained for 7 years. Customer-identifiable exports must expire after 30 days. | Data Governance | Exact numeric or exception retrieval |\n| P-003 | Maintenance freeze | No non-emergency transformer maintenance may be started during the June peak-load freeze window unless approved by both Operations and Compliance. | Maintenance Director | Exact numeric or exception retrieval |\n| P-004 | Password rotation exception | Service accounts used by field gateways rotate every 90 days, except offline substations in satellite mode which rotate at the next successful sync within 14 days. | Security Engineering | Exact numeric or exception retrieval |\n| P-005 | Model-assisted triage | AI triage suggestions are advisory. Human dispatchers must confirm safety classification before a field crew is assigned. | Service Desk Manager | Exact numeric or exception retrieval |",
+        "token_count": 229,
+        "source_block_ids": [
+          "74b784cc-da6a-457d-96c8-88072a498243",
+          "2054d357-9365-4a6b-a092-72dd76760f10"
+        ],
+        "source_refs": [],
+        "parent_path": [
+          "Policy Register"
+        ],
+        "metadata": {
+          "search_level": "parent",
+          "structure_key": "heading:Policy Register",
+          "structure_title": "Policy Register",
+          "structure": {
+            "structure": "heading_path"
+          },
+          "block_orders": [
+            26,
+            27
+          ],
+          "block_types": [
+            "heading",
+            "table"
+          ]
+        }
+      },
+      "metadata": {
+        "vector_record_id": "f6c5baf1170849fd08dace64",
+        "file_name": "05_aquila_docx_procedure_fixture.docx",
+        "file_type": "docx"
+      }
+    },
+    {
+      "rank": 4,
+      "score": 0.3328972659670158,
+      "child_chunk": {
+        "id": "b57d51d93e21c2316cbae15a",
+        "document_id": "a6a2828b51cdda2e6bc6aaa0",
+        "parent_chunk_id": "2acd109c3e5d2f62cada2792",
+        "chunk_type": "child",
+        "child_index": 8,
+        "text": "Document: Aquila SmartGrid RAG PPTX Fixture\nSection: Slide 9\n\nEvaluation Questions\n\nQA pairs allow deterministic retrieval tests across PPTX and other formats.\n\nQuestion\n\nExpected Answer\n\nEvidence\n\nWhich policy has the 14-day exception?\n\nP-004 password rotation exception\n\nPolicy Register + speaker notes\n\nHow long are hourly aggregates retained?\n\n7 years\n\nP-002\n\nCan AI triage assign a crew without human confirmation?\n\nNo\n\nP-005\n\nWhat does FY26-Q3 deliver?\n\nTable normalizer\n\nRoadmap Timeline\n\nWhat is target chunk size?\n\n650 tokens\n\nCode and Configuration Snippets\n\nUse this slide as a golden test set for answer quality and evidence citation.\n\nAquila synthetic RAG PPTX fixture | slide 9\n\nExact values: 10 min, 45 min, 14 days, 30 days, 90 days, 18 months, 7 years",
+        "token_count": 118,
+        "source_block_ids": [
+          "0324a1cf-a3a4-4da8-86e6-7ef5c2362b7d",
+          "96973cca-54c3-48b3-af56-b5a8d652060f",
+          "c70f4c1e-8e3a-4701-9d6c-1288a3bd1958",
+          "2161731b-82ba-40d7-b429-7f583adab6f3",
+          "929f530c-bdb0-4a72-9cb7-61ffb5d3a190",
+          "05a72782-c585-4fad-92ae-17bff94ae6ea",
+          "bc336d56-074e-4b12-a4c5-2a209286cfae",
+          "06cd9c07-3804-4387-9523-1021fcc9328f",
+          "e5466089-2e75-4cc2-b80c-f24a05a55972",
+          "47e974b9-4897-4bc4-ab8f-fc9f18ec60aa",
+          "bd3d2688-b653-43b0-bab9-48edbf8067d8",
+          "38b86dd6-83dd-4c16-908c-cead7034eff1",
+          "10a11ef8-a583-4e27-914c-5c0347920072",
+          "cb2748c7-6bd4-43c4-9407-bd01d5a7909b",
+          "d34e1852-0c84-449d-abc9-1cba8168f53f",
+          "2eb08923-413f-450b-bd07-bb9a2e9ea537",
+          "a85a6e03-e7d4-4a24-ac6e-8c1d9a2cefd5",
+          "5d852940-cca7-40dd-b581-f61ecda96939",
+          "8007aace-9c6e-4cb7-8726-6115ce90e4c2",
+          "235ca1b7-9c3c-4a93-8a3b-ef015bf68754",
+          "c93de9a3-a69b-4b6a-86e5-36772de4d99a",
+          "395f18ad-0f24-4d79-8d64-b48c04b1c2bd",
+          "d00a4498-76a2-4534-82d5-83de18a4d43b"
+        ],
+        "source_refs": [
+          "slide:9"
+        ],
+        "parent_path": [
+          "Slide 9"
+        ],
+        "metadata": {
+          "search_level": "child",
+          "structure_key": "slide:9",
+          "structure_title": "Slide 9",
+          "structure": {
+            "structure": "slide",
+            "slide_number": 9
+          },
+          "block_orders": [
+            203,
+            204,
+            205,
+            206,
+            207,
+            208,
+            209,
+            210,
+            211,
+            212,
+            213,
+            214,
+            215,
+            216,
+            217,
+            218,
+            219,
+            220,
+            221,
+            222,
+            223,
+            224,
+            225
+          ],
+          "block_types": [
+            "paragraph"
+          ]
+        }
+      },
+      "parent_chunk": {
+        "id": "2acd109c3e5d2f62cada2792",
+        "document_id": "a6a2828b51cdda2e6bc6aaa0",
+        "chunk_type": "parent",
+        "parent_index": 8,
+        "text": "Document: Aquila SmartGrid RAG PPTX Fixture\nSection: Slide 9\n\nEvaluation Questions\n\nQA pairs allow deterministic retrieval tests across PPTX and other formats.\n\nQuestion\n\nExpected Answer\n\nEvidence\n\nWhich policy has the 14-day exception?\n\nP-004 password rotation exception\n\nPolicy Register + speaker notes\n\nHow long are hourly aggregates retained?\n\n7 years\n\nP-002\n\nCan AI triage assign a crew without human confirmation?\n\nNo\n\nP-005\n\nWhat does FY26-Q3 deliver?\n\nTable normalizer\n\nRoadmap Timeline\n\nWhat is target chunk size?\n\n650 tokens\n\nCode and Configuration Snippets\n\nUse this slide as a golden test set for answer quality and evidence citation.\n\nAquila synthetic RAG PPTX fixture | slide 9\n\nExact values: 10 min, 45 min, 14 days, 30 days, 90 days, 18 months, 7 years",
+        "token_count": 118,
+        "source_block_ids": [
+          "0324a1cf-a3a4-4da8-86e6-7ef5c2362b7d",
+          "96973cca-54c3-48b3-af56-b5a8d652060f",
+          "c70f4c1e-8e3a-4701-9d6c-1288a3bd1958",
+          "2161731b-82ba-40d7-b429-7f583adab6f3",
+          "929f530c-bdb0-4a72-9cb7-61ffb5d3a190",
+          "05a72782-c585-4fad-92ae-17bff94ae6ea",
+          "bc336d56-074e-4b12-a4c5-2a209286cfae",
+          "06cd9c07-3804-4387-9523-1021fcc9328f",
+          "e5466089-2e75-4cc2-b80c-f24a05a55972",
+          "47e974b9-4897-4bc4-ab8f-fc9f18ec60aa",
+          "bd3d2688-b653-43b0-bab9-48edbf8067d8",
+          "38b86dd6-83dd-4c16-908c-cead7034eff1",
+          "10a11ef8-a583-4e27-914c-5c0347920072",
+          "cb2748c7-6bd4-43c4-9407-bd01d5a7909b",
+          "d34e1852-0c84-449d-abc9-1cba8168f53f",
+          "2eb08923-413f-450b-bd07-bb9a2e9ea537",
+          "a85a6e03-e7d4-4a24-ac6e-8c1d9a2cefd5",
+          "5d852940-cca7-40dd-b581-f61ecda96939",
+          "8007aace-9c6e-4cb7-8726-6115ce90e4c2",
+          "235ca1b7-9c3c-4a93-8a3b-ef015bf68754",
+          "c93de9a3-a69b-4b6a-86e5-36772de4d99a",
+          "395f18ad-0f24-4d79-8d64-b48c04b1c2bd",
+          "d00a4498-76a2-4534-82d5-83de18a4d43b"
+        ],
+        "source_refs": [
+          "slide:9"
+        ],
+        "parent_path": [
+          "Slide 9"
+        ],
+        "metadata": {
+          "search_level": "parent",
+          "structure_key": "slide:9",
+          "structure_title": "Slide 9",
+          "structure": {
+            "structure": "slide",
+            "slide_number": 9
+          },
+          "block_orders": [
+            203,
+            204,
+            205,
+            206,
+            207,
+            208,
+            209,
+            210,
+            211,
+            212,
+            213,
+            214,
+            215,
+            216,
+            217,
+            218,
+            219,
+            220,
+            221,
+            222,
+            223,
+            224,
+            225
+          ],
+          "block_types": [
+            "paragraph"
+          ]
+        }
+      },
+      "metadata": {
+        "vector_record_id": "b57d51d93e21c2316cbae15a",
+        "file_name": "06_aquila_pptx_slide_fixture.pptx",
+        "file_type": "pptx"
+      }
+    },
+    {
+      "rank": 5,
+      "score": 0.3242310882542402,
+      "child_chunk": {
+        "id": "014b8da18ca615ee643ccedf",
+        "document_id": "42a83ae77eb443104ea784d1",
+        "parent_chunk_id": "bb294b50ef6db3f48e793d38",
+        "chunk_type": "child",
+        "child_index": 4,
+        "text": "Document: Security Runbook - Aquila RAG Markdown Fixture\nSection: Security Runbook - Aquila RAG Markdown Fixture > Security Controls\n\nSecurity Controls\n\n| Control | Required? | Frequency | Notes |\n|---|---:|---:|---|\n| Service-account key rotation | Yes | 90 days | Satellite-mode exception: sync within 14 days |\n| Gateway certificate check | Yes | every connection | Reject expired or unknown issuer |\n| Export expiry | Yes | 30 days | Applies to customer-identifiable exports |\n| Human confirmation | Yes | every safety case | AI output is advisory |",
+        "token_count": 93,
+        "source_block_ids": [
+          "4ea232e2-36ba-45ce-b6c9-a6d0e10831cc",
+          "cf04e0b8-8cb3-49ba-9e7b-fc56315d115e"
+        ],
+        "source_refs": [
+          "lines:30",
+          "lines:32-37"
+        ],
+        "parent_path": [
+          "Security Runbook - Aquila RAG Markdown Fixture",
+          "Security Controls"
+        ],
+        "metadata": {
+          "search_level": "child",
+          "structure_key": "heading:Security Runbook - Aquila RAG Markdown Fixture > Security Controls",
+          "structure_title": "Security Controls",
+          "structure": {
+            "structure": "heading_path"
+          },
+          "block_orders": [
+            8,
+            9
+          ],
+          "block_types": [
+            "heading",
+            "table"
+          ]
+        }
+      },
+      "parent_chunk": {
+        "id": "bb294b50ef6db3f48e793d38",
+        "document_id": "42a83ae77eb443104ea784d1",
+        "chunk_type": "parent",
+        "parent_index": 4,
+        "text": "Document: Security Runbook - Aquila RAG Markdown Fixture\nSection: Security Runbook - Aquila RAG Markdown Fixture > Security Controls\n\nSecurity Controls\n\n| Control | Required? | Frequency | Notes |\n|---|---:|---:|---|\n| Service-account key rotation | Yes | 90 days | Satellite-mode exception: sync within 14 days |\n| Gateway certificate check | Yes | every connection | Reject expired or unknown issuer |\n| Export expiry | Yes | 30 days | Applies to customer-identifiable exports |\n| Human confirmation | Yes | every safety case | AI output is advisory |",
+        "token_count": 93,
+        "source_block_ids": [
+          "4ea232e2-36ba-45ce-b6c9-a6d0e10831cc",
+          "cf04e0b8-8cb3-49ba-9e7b-fc56315d115e"
+        ],
+        "source_refs": [
+          "lines:30",
+          "lines:32-37"
+        ],
+        "parent_path": [
+          "Security Runbook - Aquila RAG Markdown Fixture",
+          "Security Controls"
+        ],
+        "metadata": {
+          "search_level": "parent",
+          "structure_key": "heading:Security Runbook - Aquila RAG Markdown Fixture > Security Controls",
+          "structure_title": "Security Controls",
+          "structure": {
+            "structure": "heading_path"
+          },
+          "block_orders": [
+            8,
+            9
+          ],
+          "block_types": [
+            "heading",
+            "table"
+          ]
+        }
+      },
+      "metadata": {
+        "vector_record_id": "014b8da18ca615ee643ccedf",
+        "file_name": "03_aquila_security_runbook.markdown",
+        "file_type": "md"
+      }
+    }
+  ],
+  "metadata": {
+    "indexed_document_count": 10,
+    "indexed_child_chunk_count": 282,
+    "vector_store_count": 282
+  }
+}
