@@ -64,7 +64,7 @@ class RagAnswerer:
             answer=answer_text,
             llm_model=self.llm_client.name,
             retrieval_result=retrieval_result,
-            citations=self._citations(retrieval_result),
+            citations=self.citations(retrieval_result),
         )
 
     def build_messages(self, retrieval_result: RetrievalResult) -> list[dict[str, str]]:
@@ -109,7 +109,7 @@ class RagAnswerer:
 
         return "\n\n".join(sections)
 
-    def _citations(self, retrieval_result: RetrievalResult) -> list[dict[str, Any]]:
+    def citations(self, retrieval_result: RetrievalResult) -> list[dict[str, Any]]:
         citations: list[dict[str, Any]] = []
         for item in retrieval_result.results:
             child = item.child_chunk

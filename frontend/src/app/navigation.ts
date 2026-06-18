@@ -1,4 +1,4 @@
-import { Activity, FileText, MessageSquareText, Search, Settings } from "lucide-react";
+import { Activity, ClipboardCheck, FileText, History, MessageSquareText, Search, Settings, UploadCloud } from "lucide-react";
 import type { ComponentType } from "react";
 
 export type AppSection = "chat" | "admin";
@@ -44,11 +44,32 @@ export const adminNavigation: NavigationItem[] = [
     icon: Search,
   },
   {
+    to: "/admin/evaluation",
+    label: "Evaluation",
+    title: "RAG Evaluation",
+    section: "admin",
+    icon: ClipboardCheck,
+  },
+  {
+    to: "/admin/traces",
+    label: "Traces",
+    title: "RAG Trace History",
+    section: "admin",
+    icon: History,
+  },
+  {
     to: "/admin/index",
     label: "Index",
     title: "Index Inventory",
     section: "admin",
     icon: FileText,
+  },
+  {
+    to: "/admin/ingestion",
+    label: "Ingestion",
+    title: "Ingestion Jobs",
+    section: "admin",
+    icon: UploadCloud,
   },
   {
     to: "/admin/ops",

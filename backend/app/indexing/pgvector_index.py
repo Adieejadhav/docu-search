@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 import os
+import re
 from time import perf_counter
 from typing import Any
 
@@ -49,12 +50,33 @@ class IndexedDocumentSummary:
     metadata: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class IndexedDocumentChunkSummary:
+    child_chunk_id: str
+    parent_chunk_id: str
+    child_index: int
+    parent_index: int
+    child_text: str
+    parent_text: str
+    child_token_count: int
+    parent_token_count: int
+    source_refs: list[str]
+    parent_path: list[str]
+    metadata: dict[str, Any]
+    created_at: datetime | None
+
+
 class PgVectorChunkIndex:
     """
     Production chunk/vector index backed by PostgreSQL and pgvector.
     """
 
     SCHEMA_VERSION = 1
+    MIN_HYBRID_CANDIDATES = 50
+    MAX_HYBRID_CANDIDATES = 200
+    DEFAULT_HYBRID_VECTOR_WEIGHT = 0.62
+    DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.30
+    DEFAULT_HYBRID_PHRASE_WEIGHT = 0.08
 
     def __init__(
         self,
@@ -73,9 +95,22 @@ class PgVectorChunkIndex:
         self.embedding_provider = (
             embedding_provider or LocalSentenceTransformerEmbeddingProvider()
         )
+        self.hybrid_vector_weight = configured_float(
+            "HYBRID_VECTOR_WEIGHT",
+            self.DEFAULT_HYBRID_VECTOR_WEIGHT,
+        )
+        self.hybrid_lexical_weight = configured_float(
+            "HYBRID_LEXICAL_WEIGHT",
+            self.DEFAULT_HYBRID_LEXICAL_WEIGHT,
+        )
+        self.hybrid_phrase_weight = configured_float(
+            "HYBRID_PHRASE_WEIGHT",
+            self.DEFAULT_HYBRID_PHRASE_WEIGHT,
+        )
 
     def initialize(self) -> None:
         with self._connect() as connection:
+            self._lock_schema_initialization(connection)
             self._create_schema(connection)
             self._validate_or_set_index_metadata(connection)
 
@@ -166,11 +201,25 @@ class PgVectorChunkIndex:
         query_vector_text = self._vector_to_sql(query_vector)
 
         with self._connect() as connection:
-            rows = self._search_rows(
+            vector_rows = self._search_vector_rows(
                 connection=connection,
                 query_vector_text=query_vector_text,
-                top_k=top_k,
+                query=query,
+                top_k=self._candidate_limit(top_k),
                 metadata_filters=metadata_filters,
+            )
+            lexical_rows = self._search_lexical_rows(
+                connection=connection,
+                query_vector_text=query_vector_text,
+                query=query,
+                top_k=self._candidate_limit(top_k),
+                metadata_filters=metadata_filters,
+            )
+            rows = self._merge_and_rerank_rows(
+                query=query,
+                vector_rows=vector_rows,
+                lexical_rows=lexical_rows,
+                top_k=top_k,
             )
             results = [
                 self._retrieved_chunk_from_row(row=row, rank=rank)
@@ -188,6 +237,12 @@ class PgVectorChunkIndex:
                 "indexed_document_count": stats.document_count,
                 "indexed_parent_chunk_count": stats.parent_chunk_count,
                 "indexed_child_chunk_count": stats.child_chunk_count,
+                "retrieval_mode": "hybrid_vector_full_text",
+                "hybrid_weights": {
+                    "vector": self._hybrid_vector_weight(),
+                    "lexical": self._hybrid_lexical_weight(),
+                    "phrase": self._hybrid_phrase_weight(),
+                },
             },
         )
 
@@ -252,6 +307,105 @@ class PgVectorChunkIndex:
 
         return [self._document_summary_from_row(row) for row in rows]
 
+    def get_document(self, document_id: str) -> IndexedDocumentSummary | None:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    d.id,
+                    d.title,
+                    d.file_name,
+                    d.file_type,
+                    d.source_path,
+                    d.metadata,
+                    d.created_at,
+                    d.updated_at,
+                    COALESCE(pc.parent_chunk_count, 0) AS parent_chunk_count,
+                    COALESCE(cc.child_chunk_count, 0) AS child_chunk_count
+                FROM documents d
+                LEFT JOIN (
+                    SELECT document_id, COUNT(*) AS parent_chunk_count
+                    FROM parent_chunks
+                    GROUP BY document_id
+                ) pc ON pc.document_id = d.id
+                LEFT JOIN (
+                    SELECT document_id, COUNT(*) AS child_chunk_count
+                    FROM child_chunks
+                    GROUP BY document_id
+                ) cc ON cc.document_id = d.id
+                WHERE d.id = %s
+                """,
+                (document_id,),
+            ).fetchone()
+
+        return self._document_summary_from_row(row) if row else None
+
+    def list_document_chunks(
+        self,
+        document_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[int, list[IndexedDocumentChunkSummary]]:
+        if limit < 1 or limit > 500:
+            raise RetrievalError(
+                "limit must be between 1 and 500",
+                code="INVALID_DOCUMENT_CHUNK_LIMIT",
+                details={"limit": limit},
+            )
+        if offset < 0:
+            raise RetrievalError(
+                "offset cannot be negative",
+                code="INVALID_DOCUMENT_CHUNK_OFFSET",
+                details={"offset": offset},
+            )
+
+        self.initialize()
+        with self._connect() as connection:
+            total_row = connection.execute(
+                "SELECT COUNT(*) AS count FROM child_chunks WHERE document_id = %s",
+                (document_id,),
+            ).fetchone()
+            rows = connection.execute(
+                """
+                SELECT
+                    cc.id AS child_chunk_id,
+                    pc.id AS parent_chunk_id,
+                    cc.child_index,
+                    pc.parent_index,
+                    cc.text AS child_text,
+                    pc.text AS parent_text,
+                    cc.token_count AS child_token_count,
+                    pc.token_count AS parent_token_count,
+                    cc.source_refs,
+                    cc.parent_path,
+                    cc.metadata,
+                    cc.created_at
+                FROM child_chunks cc
+                JOIN parent_chunks pc ON pc.id = cc.parent_chunk_id
+                WHERE cc.document_id = %s
+                ORDER BY pc.parent_index, cc.child_index
+                LIMIT %s OFFSET %s
+                """,
+                (document_id, limit, offset),
+            ).fetchall()
+
+        return (
+            int(total_row["count"]),
+            [self._document_chunk_summary_from_row(row) for row in rows],
+        )
+
+    def delete_document(self, document_id: str) -> bool:
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                "DELETE FROM documents WHERE id = %s RETURNING id",
+                (document_id,),
+            ).fetchone()
+
+        return row is not None
+
     def _connect(self) -> Any:
         try:
             import psycopg
@@ -263,6 +417,9 @@ class PgVectorChunkIndex:
             ) from exc
 
         return psycopg.connect(self.database_url, row_factory=dict_row)
+
+    def _lock_schema_initialization(self, connection: Any) -> None:
+        connection.execute("SELECT pg_advisory_xact_lock(420240519826)")
 
     def _create_schema(self, connection: Any) -> None:
         dimensions = self.embedding_provider.dimensions
@@ -374,6 +531,20 @@ class PgVectorChunkIndex:
             CREATE INDEX IF NOT EXISTS idx_child_embeddings_embedding_hnsw
                 ON child_embeddings
                 USING hnsw (embedding vector_cosine_ops)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_child_chunks_text_fts
+                ON child_chunks
+                USING gin (to_tsvector('english', text))
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_parent_chunks_text_fts
+                ON parent_chunks
+                USING gin (to_tsvector('english', text))
             """
         )
 
@@ -583,11 +754,12 @@ class PgVectorChunkIndex:
 
         return len(document.child_chunks)
 
-    def _search_rows(
+    def _search_vector_rows(
         self,
         *,
         connection: Any,
         query_vector_text: str,
+        query: str,
         top_k: int,
         metadata_filters: dict[str, Any] | None,
     ) -> list[dict[str, Any]]:
@@ -612,7 +784,11 @@ class PgVectorChunkIndex:
                     pc.chunk_json AS parent_json,
                     d.file_name AS file_name,
                     d.file_type AS file_type,
-                    1 - (ce.embedding <=> %s::vector) AS score
+                    1 - (ce.embedding <=> %s::vector) AS vector_score,
+                    ts_rank_cd(
+                        to_tsvector('english', cc.text || ' ' || pc.text || ' ' || d.file_name),
+                        websearch_to_tsquery('english', %s)
+                    ) AS lexical_score
                 FROM child_chunks cc
                 JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
                 JOIN parent_chunks pc ON pc.id = cc.parent_chunk_id
@@ -621,9 +797,172 @@ class PgVectorChunkIndex:
                 ORDER BY ce.embedding <=> %s::vector
                 LIMIT %s
                 """,
-                [query_vector_text, *filter_params, query_vector_text, top_k],
+                [query_vector_text, query, *filter_params, query_vector_text, top_k],
             )
         )
+
+    def _search_lexical_rows(
+        self,
+        *,
+        connection: Any,
+        query_vector_text: str,
+        query: str,
+        top_k: int,
+        metadata_filters: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        where_parts: list[str] = [
+            """
+            (
+                to_tsvector('english', cc.text) @@ websearch_to_tsquery('english', %s)
+                OR to_tsvector('english', pc.text) @@ websearch_to_tsquery('english', %s)
+                OR to_tsvector('english', d.file_name) @@ websearch_to_tsquery('english', %s)
+            )
+            """
+        ]
+        filter_params: list[Any] = [query, query, query]
+
+        for field_name in ("file_name", "file_type", "document_id"):
+            if metadata_filters and field_name in metadata_filters:
+                if field_name == "document_id":
+                    where_parts.append("cc.document_id = %s")
+                else:
+                    where_parts.append(f"d.{field_name} = %s")
+                filter_params.append(metadata_filters[field_name])
+
+        where_clause = f"WHERE {' AND '.join(where_parts)}"
+        return list(
+            connection.execute(
+                f"""
+                SELECT
+                    cc.id AS child_id,
+                    cc.chunk_json AS child_json,
+                    pc.chunk_json AS parent_json,
+                    d.file_name AS file_name,
+                    d.file_type AS file_type,
+                    1 - (ce.embedding <=> %s::vector) AS vector_score,
+                    ts_rank_cd(
+                        to_tsvector('english', cc.text || ' ' || pc.text || ' ' || d.file_name),
+                        websearch_to_tsquery('english', %s)
+                    ) AS lexical_score
+                FROM child_chunks cc
+                JOIN child_embeddings ce ON ce.child_chunk_id = cc.id
+                JOIN parent_chunks pc ON pc.id = cc.parent_chunk_id
+                JOIN documents d ON d.id = cc.document_id
+                {where_clause}
+                ORDER BY lexical_score DESC, vector_score DESC
+                LIMIT %s
+                """,
+                [query_vector_text, query, *filter_params, top_k],
+            )
+        )
+
+    def _merge_and_rerank_rows(
+        self,
+        *,
+        query: str,
+        vector_rows: list[dict[str, Any]],
+        lexical_rows: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+        has_lexical_hits = False
+
+        for source_name, rows in (("vector", vector_rows), ("lexical", lexical_rows)):
+            for source_rank, row in enumerate(rows, start=1):
+                row_key = str(row["child_id"])
+                existing = merged.get(row_key)
+                if existing is None:
+                    existing = dict(row)
+                    existing["vector_rank"] = None
+                    existing["lexical_rank"] = None
+                    merged[row_key] = existing
+
+                existing["vector_score"] = max(
+                    float(existing.get("vector_score") or 0.0),
+                    float(row.get("vector_score") or 0.0),
+                )
+                existing["lexical_score"] = max(
+                    float(existing.get("lexical_score") or 0.0),
+                    float(row.get("lexical_score") or 0.0),
+                )
+                if source_name == "vector":
+                    existing["vector_rank"] = source_rank
+                else:
+                    existing["lexical_rank"] = source_rank
+                    has_lexical_hits = True
+
+        reranked_rows = list(merged.values())
+        for row in reranked_rows:
+            row["score"] = self._hybrid_score(
+                query=query,
+                row=row,
+                has_lexical_hits=has_lexical_hits,
+            )
+
+        reranked_rows.sort(
+            key=lambda row: (
+                float(row["score"]),
+                float(row.get("vector_score") or 0.0),
+                -(row.get("vector_rank") or self.MAX_HYBRID_CANDIDATES + 1),
+            ),
+            reverse=True,
+        )
+        return reranked_rows[:top_k]
+
+    def _hybrid_score(
+        self,
+        *,
+        query: str,
+        row: dict[str, Any],
+        has_lexical_hits: bool,
+    ) -> float:
+        vector_score = float(row.get("vector_score") or 0.0)
+        lexical_score = float(row.get("lexical_score") or 0.0)
+        if not has_lexical_hits:
+            return vector_score
+
+        lexical_component = min(lexical_score * 8.0, 1.0)
+        phrase_component = self._phrase_overlap_score(query=query, row=row)
+        combined = (
+            (self._hybrid_vector_weight() * vector_score)
+            + (self._hybrid_lexical_weight() * lexical_component)
+            + (self._hybrid_phrase_weight() * phrase_component)
+        )
+        return min(round(combined, 12), 1.0)
+
+    def _hybrid_vector_weight(self) -> float:
+        return float(
+            getattr(self, "hybrid_vector_weight", self.DEFAULT_HYBRID_VECTOR_WEIGHT)
+        )
+
+    def _hybrid_lexical_weight(self) -> float:
+        return float(
+            getattr(self, "hybrid_lexical_weight", self.DEFAULT_HYBRID_LEXICAL_WEIGHT)
+        )
+
+    def _hybrid_phrase_weight(self) -> float:
+        return float(
+            getattr(self, "hybrid_phrase_weight", self.DEFAULT_HYBRID_PHRASE_WEIGHT)
+        )
+
+    def _phrase_overlap_score(self, *, query: str, row: dict[str, Any]) -> float:
+        searchable_text = " ".join(
+            [
+                str(row.get("file_name") or ""),
+                json.dumps(row.get("child_json") or {}, ensure_ascii=False),
+                json.dumps(row.get("parent_json") or {}, ensure_ascii=False),
+            ]
+        )
+        query_tokens = meaningful_tokens(query)
+        if not query_tokens:
+            return 0.0
+
+        text_tokens = set(meaningful_tokens(searchable_text))
+        if not text_tokens:
+            return 0.0
+
+        matched_tokens = sum(1 for token in query_tokens if token in text_tokens)
+        return matched_tokens / len(query_tokens)
 
     def _retrieved_chunk_from_row(
         self,
@@ -635,15 +974,25 @@ class PgVectorChunkIndex:
         parent_chunk = ParentChunk.model_validate(self._loads_json(row["parent_json"]))
         return RetrievedChunk(
             rank=rank,
-            score=float(row["score"]),
+            score=float(row.get("score") or row.get("vector_score") or 0.0),
             child_chunk=child_chunk,
             parent_chunk=parent_chunk,
             metadata={
                 "vector_record_id": row["child_id"],
                 "file_name": row["file_name"],
                 "file_type": row["file_type"],
+                "vector_score": float(row.get("vector_score") or 0.0),
+                "lexical_score": float(row.get("lexical_score") or 0.0),
+                "vector_rank": row.get("vector_rank"),
+                "lexical_rank": row.get("lexical_rank"),
                 "database_url": self._redacted_database_url(),
             },
+        )
+
+    def _candidate_limit(self, top_k: int) -> int:
+        return min(
+            max(top_k * 8, self.MIN_HYBRID_CANDIDATES),
+            self.MAX_HYBRID_CANDIDATES,
         )
 
     def _stats(self, connection: Any) -> PgVectorIndexStats:
@@ -671,6 +1020,25 @@ class PgVectorChunkIndex:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             metadata=self._loads_json(row["metadata"]),
+        )
+
+    def _document_chunk_summary_from_row(
+        self,
+        row: dict[str, Any],
+    ) -> IndexedDocumentChunkSummary:
+        return IndexedDocumentChunkSummary(
+            child_chunk_id=row["child_chunk_id"],
+            parent_chunk_id=row["parent_chunk_id"],
+            child_index=int(row["child_index"]),
+            parent_index=int(row["parent_index"]),
+            child_text=row["child_text"],
+            parent_text=row["parent_text"],
+            child_token_count=int(row["child_token_count"]),
+            parent_token_count=int(row["parent_token_count"]),
+            source_refs=self._loads_json(row["source_refs"]),
+            parent_path=self._loads_json(row["parent_path"]),
+            metadata=self._loads_json(row["metadata"]),
+            created_at=row["created_at"],
         )
 
     def _metadata(self, connection: Any) -> dict[str, str]:
@@ -718,3 +1086,53 @@ class PgVectorChunkIndex:
         scheme_and_credentials, host = self.database_url.split("@", 1)
         scheme = scheme_and_credentials.split("://", 1)[0]
         return f"{scheme}://***@{host}"
+
+
+def meaningful_tokens(value: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+", value.casefold())
+    stop_words = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "be",
+        "can",
+        "do",
+        "does",
+        "for",
+        "how",
+        "is",
+        "it",
+        "of",
+        "or",
+        "should",
+        "the",
+        "to",
+        "what",
+        "when",
+        "which",
+        "who",
+    }
+    return [singularize_token(token) for token in tokens if token not in stop_words]
+
+
+def singularize_token(token: str) -> str:
+    if len(token) > 3 and token.endswith("ies"):
+        return f"{token[:-3]}y"
+    if len(token) > 3 and token.endswith("s"):
+        return token[:-1]
+    return token
+
+
+def configured_float(env_name: str, default: float) -> float:
+    raw_value = os.getenv(env_name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise RetrievalError(
+            "Float environment setting is invalid",
+            code="INVALID_FLOAT_ENV",
+            details={"env_name": env_name, "value": raw_value},
+        ) from exc

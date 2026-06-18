@@ -7,4 +7,5 @@ export interface ChatMessage {
   sources?: RetrievedChunkResponse[];
   latencyMs?: number;
   model?: string;
+  traceId?: string;
 }

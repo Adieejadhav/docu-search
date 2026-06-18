@@ -18,6 +18,7 @@ dependencies = [
     "PyYAML>=6.0,<7.0",
     "python-docx>=1.1,<2.0",
     "python-dotenv>=1.0,<2.0",
+    "python-multipart>=0.0.9,<1.0",
     "python-pptx>=1.0,<2.0",
     "sentence-transformers>=3.0,<6.0",
     "uvicorn[standard]>=0.30,<1.0",
@@ -37,6 +38,8 @@ docu-clear-db = "app.cli.clear_database:main"
 docu-index = "app.cli.index_chunks:main"
 docu-parse = "app.cli.parse_documents:main"
 docu-query = "app.cli.query_index:main"
+docu-migrate-db = "app.cli.migrate_database:main"
+docu-ingestion-worker = "app.cli.run_ingestion_worker:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

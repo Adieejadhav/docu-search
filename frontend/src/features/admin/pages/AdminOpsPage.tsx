@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
-import { ShieldAlert, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, ShieldAlert, Trash2 } from "lucide-react";
 import { useAppData } from "../../../app/AppDataContext";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Panel } from "../../../components/ui/Panel";
+import { getApiMetrics } from "../../../services/api";
+import type { ApiMetricsSnapshot } from "../../../services/types";
 import { useAdminWorkbench } from "../AdminWorkbenchContext";
+import { PerfMetric } from "../AdminPrimitives";
 import { buildImprovementAreas } from "../improvements";
 
 const CONFIRM_TEXT = "CLEAR INDEX";
@@ -14,6 +17,7 @@ export function AdminOpsPage() {
   const { isLoading, runClearIndex, searchResult } = useAdminWorkbench();
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
+  const [metrics, setMetrics] = useState<ApiMetricsSnapshot | null>(null);
   const improvementAreas = useMemo(
     () => buildImprovementAreas(health, documents, searchResult),
     [documents, health, searchResult],
@@ -23,6 +27,18 @@ export function AdminOpsPage() {
     await runClearIndex();
     setDialogOpen(false);
     setConfirmation("");
+  }
+
+  useEffect(() => {
+    void refreshMetrics();
+  }, []);
+
+  async function refreshMetrics() {
+    try {
+      setMetrics(await getApiMetrics());
+    } catch {
+      setMetrics(null);
+    }
   }
 
   return (
@@ -48,6 +64,29 @@ export function AdminOpsPage() {
             <li key={item}>{item}</li>
           ))}
         </ul>
+      </Panel>
+
+      <Panel
+        className="wide-panel"
+        eyebrow="API Metrics"
+        icon={<Activity size={20} />}
+        title="Request Snapshot"
+      >
+        <div className="perf-grid">
+          <PerfMetric label="Total" value={metrics?.total_count} />
+          <PerfMetric label="Success" value={metrics?.success_count} />
+          <PerfMetric label="Failure" value={metrics?.failure_count} />
+        </div>
+        <div className="operation-list">
+          {Object.entries(metrics?.success_by_operation ?? {})
+            .slice(0, 8)
+            .map(([operation, count]) => (
+              <div className="status-row" key={operation}>
+                <span>{operation}</span>
+                <strong>{count}</strong>
+              </div>
+            ))}
+        </div>
       </Panel>
 
       <ConfirmDialog

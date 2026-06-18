@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_chunk_index
+from app.api.middleware import metrics_snapshot
 from app.core.exceptions import RetrievalError
 from app.indexing import PgVectorChunkIndex
 from app.schemas import AdminClearIndexRequest, AdminClearIndexResponse
@@ -29,3 +32,15 @@ def clear_index(
         parent_chunk_count=stats.parent_chunk_count,
         child_chunk_count=stats.child_chunk_count,
     )
+
+
+@router.get("/metrics")
+def get_api_metrics() -> dict:
+    return metrics_snapshot()
+
+
+@router.get("/auth/status")
+def get_admin_auth_status() -> dict:
+    return {
+        "admin_token_required": bool(os.getenv("ADMIN_API_TOKEN")),
+    }
