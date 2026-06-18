@@ -8,11 +8,23 @@ from __future__ import annotations
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-from app.core.exceptions import AppError, EmbeddingError, IngestionError, LLMError, RetrievalError
+from app.core.exceptions import (
+    AppError,
+    AuthenticationError,
+    EmbeddingError,
+    IngestionError,
+    LLMError,
+    RateLimitError,
+    RetrievalError,
+)
 from app.schemas import ApiErrorResponse
 
 
 def app_error_status_code(exc: AppError) -> int:
+    if isinstance(exc, AuthenticationError):
+        return status.HTTP_401_UNAUTHORIZED
+    if isinstance(exc, RateLimitError):
+        return status.HTTP_429_TOO_MANY_REQUESTS
     if isinstance(exc, IngestionError):
         return status.HTTP_400_BAD_REQUEST
     if isinstance(exc, RetrievalError):

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_chunk_index, get_rag_answerer
+from app.api.dependencies import get_chunk_index, get_rag_answerer, get_rag_trace_store
 from app.indexing import PgVectorChunkIndex
 from app.rag import RagAnswerer
+from app.rag.traces import RagTraceStore
 from app.schemas import (
     AskRequest,
     AskResponse,
@@ -35,19 +38,37 @@ def ask_index(
     request: AskRequest,
     index: PgVectorChunkIndex = Depends(get_chunk_index),
     answerer: RagAnswerer = Depends(get_rag_answerer),
+    trace_store: RagTraceStore = Depends(get_rag_trace_store),
 ) -> AskResponse:
+    retrieval_started = perf_counter()
     retrieval_result = index.retrieve(
         request.query,
         top_k=request.top_k,
         metadata_filters=metadata_filters_from_request(request),
     )
+    retrieval_ms = duration_ms(retrieval_started)
+
+    answer_started = perf_counter()
     answer = answerer.answer(retrieval_result)
+    answer_ms = duration_ms(answer_started)
+    retrieval_response = search_response_from_result(answer.retrieval_result)
+    trace = trace_store.record_trace(
+        query=answer.query,
+        answer=answer.answer,
+        llm_model=answer.llm_model,
+        retrieval=retrieval_response,
+        citations=answer.citations,
+        retrieval_ms=retrieval_ms,
+        answer_ms=answer_ms,
+        metadata={"route": "/ask"},
+    )
     return AskResponse(
         query=answer.query,
         answer=answer.answer,
         llm_model=answer.llm_model,
-        retrieval=search_response_from_result(answer.retrieval_result),
+        retrieval=retrieval_response,
         citations=answer.citations,
+        trace_id=trace.id,
     )
 
 
@@ -86,3 +107,7 @@ def search_response_from_result(result: RetrievalResult) -> SearchResponse:
         ],
         metadata=result.metadata,
     )
+
+
+def duration_ms(started: float) -> float:
+    return round((perf_counter() - started) * 1000, 3)

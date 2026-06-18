@@ -45,21 +45,7 @@ class OllamaChatClient:
         if not messages:
             raise LLMError("LLM messages cannot be empty", code="EMPTY_LLM_MESSAGES")
 
-        for index, message in enumerate(messages):
-            role = message.get("role", "")
-            content = message.get("content", "")
-            if role not in {"system", "user", "assistant"}:
-                raise LLMError(
-                    "LLM message has invalid role",
-                    code="INVALID_LLM_MESSAGE_ROLE",
-                    details={"message_index": index, "role": role},
-                )
-            if not content.strip():
-                raise LLMError(
-                    "LLM message content cannot be empty",
-                    code="EMPTY_LLM_MESSAGE_CONTENT",
-                    details={"message_index": index},
-                )
+        self._validate_messages(messages)
 
         try:
             response = self._get_client().chat(
@@ -85,6 +71,30 @@ class OllamaChatClient:
 
         return content
 
+    def stream(self, messages: list[dict[str, str]]):
+        if not messages:
+            raise LLMError("LLM messages cannot be empty", code="EMPTY_LLM_MESSAGES")
+
+        self._validate_messages(messages)
+        try:
+            stream = self._get_client().chat(
+                model=self.model,
+                messages=messages,
+                options={"temperature": self.temperature},
+                stream=True,
+            )
+        except Exception as exc:
+            raise LLMError(
+                "Ollama streaming chat request failed",
+                code="OLLAMA_STREAM_FAILED",
+                details={"model": self.model, "host": self.host},
+            ) from exc
+
+        for chunk in stream:
+            content = self._extract_stream_content(chunk)
+            if content:
+                yield content
+
     def _get_client(self) -> Any:
         if self._client is not None:
             return self._client
@@ -100,6 +110,23 @@ class OllamaChatClient:
         self._client = Client(host=self.host)
         return self._client
 
+    def _validate_messages(self, messages: list[dict[str, str]]) -> None:
+        for index, message in enumerate(messages):
+            role = message.get("role", "")
+            content = message.get("content", "")
+            if role not in {"system", "user", "assistant"}:
+                raise LLMError(
+                    "LLM message has invalid role",
+                    code="INVALID_LLM_MESSAGE_ROLE",
+                    details={"message_index": index, "role": role},
+                )
+            if not content.strip():
+                raise LLMError(
+                    "LLM message content cannot be empty",
+                    code="EMPTY_LLM_MESSAGE_CONTENT",
+                    details={"message_index": index},
+                )
+
     def _extract_content(self, response: Any) -> str:
         if isinstance(response, dict):
             message = response.get("message", {})
@@ -112,3 +139,16 @@ class OllamaChatClient:
 
         content = getattr(message, "content", None)
         return str(content or "").strip()
+
+    def _extract_stream_content(self, response: Any) -> str:
+        if isinstance(response, dict):
+            message = response.get("message", {})
+            if isinstance(message, dict):
+                return str(message.get("content", ""))
+
+        message = getattr(response, "message", None)
+        if isinstance(message, dict):
+            return str(message.get("content", ""))
+
+        content = getattr(message, "content", None)
+        return str(content or "")

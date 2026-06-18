@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bot, FileSearch, Send, User } from "lucide-react";
+import { Bot, FileSearch, MessageSquarePlus, Send, User } from "lucide-react";
 import { MarkdownAnswer } from "../../components/MarkdownAnswer";
 import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { askDocuments } from "../../services/api";
-import { elapsedMs, messageFromError, scorePercent } from "../../lib/format";
+import { askChatStream, getChatSession, listChatSessions } from "../../services/api";
+import { formatDateTime, messageFromError, scorePercent } from "../../lib/format";
 import type { ChatMessage } from "./types";
+import type { ChatMessageResponse, ChatSessionSummary } from "../../services/types";
 
 const DEFAULT_QUESTION = "Which policy mentions the 14-day satellite-mode exception?";
 const SUGGESTIONS = [
@@ -16,7 +18,10 @@ const SUGGESTIONS = [
 
 export function ChatPanel({ onError }: { onError: (message: string | null) => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [draft, setDraft] = useState(DEFAULT_QUESTION);
+  const [isLoadingSessions, setLoadingSessions] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
@@ -31,6 +36,10 @@ export function ChatPanel({ onError }: { onError: (message: string | null) => vo
     latestSources[0];
 
   useEffect(() => {
+    void refreshSessions();
+  }, []);
+
+  useEffect(() => {
     if (!latestSources.length) {
       setSelectedSourceId(null);
       return;
@@ -42,33 +51,105 @@ export function ChatPanel({ onError }: { onError: (message: string | null) => vo
     );
   }, [latestSources]);
 
+  async function refreshSessions(autoSelect = true) {
+    setLoadingSessions(true);
+    try {
+      const payload = await listChatSessions();
+      setSessions(payload.sessions);
+      if (autoSelect && !activeSessionId && payload.sessions.length && !messages.length) {
+        await loadSession(payload.sessions[0].id);
+      }
+    } catch (error) {
+      onError(messageFromError(error));
+    } finally {
+      setLoadingSessions(false);
+    }
+  }
+
+  async function loadSession(sessionId: string) {
+    setActiveSessionId(sessionId);
+    onError(null);
+    try {
+      const session = await getChatSession(sessionId);
+      setMessages(session.messages.map(chatMessageFromResponse));
+    } catch (error) {
+      onError(messageFromError(error));
+    }
+  }
+
+  function startNewChat() {
+    setActiveSessionId(null);
+    setMessages([]);
+    setDraft(DEFAULT_QUESTION);
+    setSelectedSourceId(null);
+  }
+
   async function submitQuestion(event: FormEvent) {
     event.preventDefault();
     const question = draft.trim();
     if (!question || isAsking) return;
 
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: question,
-    };
-    setMessages((current) => [...current, userMessage]);
     setDraft("");
     setIsAsking(true);
     onError(null);
 
-    const start = performance.now();
     try {
-      const answer = await askDocuments({ query: question, top_k: 5 });
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: answer.answer,
-        sources: answer.retrieval.results,
-        latencyMs: elapsedMs(start),
-        model: answer.llm_model,
-      };
-      setMessages((current) => [...current, assistantMessage]);
+      const streamAssistantId = crypto.randomUUID();
+      await askChatStream(
+        {
+          query: question,
+          top_k: 5,
+          ...(activeSessionId ? { session_id: activeSessionId } : {}),
+        },
+        {
+          onSession: (payload) => {
+            setActiveSessionId(payload.session.id);
+            setMessages((current) => [
+              ...current,
+              chatMessageFromResponse(payload.user_message),
+              {
+                id: streamAssistantId,
+                role: "assistant",
+                content: "",
+                sources: [],
+                model: "streaming",
+              },
+            ]);
+          },
+          onRetrieval: (payload) => {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === streamAssistantId
+                  ? { ...message, sources: payload.results }
+                  : message,
+              ),
+            );
+          },
+          onDelta: (text) => {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === streamAssistantId
+                  ? { ...message, content: `${message.content}${text}` }
+                  : message,
+              ),
+            );
+          },
+          onComplete: (payload) => {
+            setActiveSessionId(payload.session.id);
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === streamAssistantId
+                  ? chatMessageFromResponse(payload.assistant_message)
+                  : message,
+              ),
+            );
+          },
+          onError: (streamError) => {
+            throw streamError;
+          },
+        },
+      );
+      await refreshSessions(false);
     } catch (error) {
       onError(messageFromError(error));
       setDraft(question);
@@ -164,6 +245,37 @@ export function ChatPanel({ onError }: { onError: (message: string | null) => vo
       </div>
 
       <aside className="chat-sources">
+        <section className="chat-history-panel">
+          <header>
+            <p className="eyebrow">Conversations</p>
+            <Button icon={<MessageSquarePlus size={16} />} onClick={startNewChat} size="small">
+              New
+            </Button>
+          </header>
+          <div className="chat-session-list">
+            {isLoadingSessions && <Skeleton compact count={2} />}
+            {!isLoadingSessions &&
+              sessions.map((session) => (
+                <button
+                  className={
+                    session.id === activeSessionId ? "chat-session active" : "chat-session"
+                  }
+                  key={session.id}
+                  onClick={() => void loadSession(session.id)}
+                  type="button"
+                >
+                  <strong>{session.title}</strong>
+                  <span>
+                    {session.message_count} messages · {formatDateTime(session.updated_at)}
+                  </span>
+                </button>
+              ))}
+            {!isLoadingSessions && !sessions.length && (
+              <div className="source-empty">No saved chats yet.</div>
+            )}
+          </div>
+        </section>
+
         <header>
           <p className="eyebrow">Sources</p>
           <h2>{latestSources.length ? `${latestSources.length} retrieved` : "No sources yet"}</h2>
@@ -206,4 +318,16 @@ export function ChatPanel({ onError }: { onError: (message: string | null) => vo
       </aside>
     </section>
   );
+}
+
+function chatMessageFromResponse(message: ChatMessageResponse): ChatMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    sources: message.sources,
+    latencyMs: message.latency_ms ?? undefined,
+    model: message.llm_model ?? undefined,
+    traceId: message.trace_id ?? undefined,
+  };
 }

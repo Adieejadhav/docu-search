@@ -30,6 +30,14 @@ class ValidationError(AppError):
     """Raised for application/domain validation failures."""
 
 
+class AuthenticationError(AppError):
+    """Raised when an API request fails authentication."""
+
+
+class RateLimitError(AppError):
+    """Raised when a client exceeds configured request limits."""
+
+
 class FileValidationError(ValidationError):
     """Raised when uploaded or local file validation fails."""
 
