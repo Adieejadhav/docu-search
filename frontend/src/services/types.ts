@@ -72,6 +72,7 @@ export interface SearchRequest {
 export interface RetrievedChunkResponse {
   rank: number;
   score: number;
+  document_id?: string | null;
   file_name: string | null;
   file_type: string | null;
   source_refs: string[];

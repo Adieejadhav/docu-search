@@ -90,6 +90,7 @@ def search_response_from_result(result: RetrievalResult) -> SearchResponse:
             RetrievedChunkResponse(
                 rank=item.rank,
                 score=item.score,
+                document_id=item.child_chunk.document_id,
                 file_name=item.metadata.get("file_name"),
                 file_type=item.metadata.get("file_type"),
                 source_refs=(

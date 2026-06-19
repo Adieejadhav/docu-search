@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AlertBanner } from "./components/AlertBanner";
 import { AppDataProvider, useAppData } from "./app/AppDataContext";
 import { AppShell } from "./app/AppShell";
@@ -25,16 +25,18 @@ export default function App() {
 
 function AppRoutes() {
   const { error, isRefreshing, refreshOverview, setError } = useAppData();
+  const location = useLocation();
+  const isChatRoute = location.pathname.startsWith("/chat");
 
   return (
     <AppShell
       onRefresh={() => void refreshOverview()}
       refreshDisabled={isRefreshing}
     >
-      {error && <AlertBanner message={error} />}
+      {error && !isChatRoute && <AlertBanner message={error} />}
       <Routes>
         <Route path="/" element={<Navigate to="/chat" replace />} />
-        <Route path="/chat" element={<ChatPanel onError={setError} />} />
+        <Route path="/chat" element={<ChatPanel error={error} onError={setError} />} />
         <Route
           path="/admin"
           element={
