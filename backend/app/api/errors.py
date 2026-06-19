@@ -28,7 +28,11 @@ def app_error_status_code(exc: AppError) -> int:
     if isinstance(exc, IngestionError):
         return status.HTTP_400_BAD_REQUEST
     if isinstance(exc, RetrievalError):
-        if exc.code in {"DATABASE_URL_MISSING", "PSYCOPG_PACKAGE_MISSING"}:
+        if exc.code in {
+            "DATABASE_CONNECTION_FAILED",
+            "DATABASE_URL_MISSING",
+            "PSYCOPG_PACKAGE_MISSING",
+        }:
             return status.HTTP_503_SERVICE_UNAVAILABLE
         return status.HTTP_400_BAD_REQUEST
     if isinstance(exc, EmbeddingError):

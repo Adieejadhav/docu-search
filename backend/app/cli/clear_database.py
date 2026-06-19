@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.core.env import load_environment
 from app.core.exceptions import RetrievalError
+from app.db.connection import connect_postgres
 
 
 APP_TABLES = (
@@ -138,16 +139,12 @@ def ensure_tables_exist(connection) -> None:
 
 
 def connect(database_url: str):
-    try:
-        import psycopg
-        from psycopg.rows import dict_row
-    except ImportError as exc:
-        raise RetrievalError(
-            "The psycopg[binary] package is required for database clearing",
-            code="PSYCOPG_PACKAGE_MISSING",
-        ) from exc
-
-    return psycopg.connect(database_url, row_factory=dict_row)
+    return connect_postgres(
+        database_url,
+        package_error_message=(
+            "The psycopg[binary] package is required for database clearing"
+        ),
+    )
 
 
 def default_migration_path() -> Path:

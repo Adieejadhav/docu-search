@@ -13,6 +13,7 @@ from typing import Any
 
 from app.core.env import load_environment
 from app.core.exceptions import RetrievalError
+from app.db.connection import connect_postgres
 
 
 @dataclass(frozen=True)
@@ -109,16 +110,12 @@ class SqlMigrationRunner:
         )
 
     def _connect(self) -> Any:
-        try:
-            import psycopg
-            from psycopg.rows import dict_row
-        except ImportError as exc:
-            raise RetrievalError(
-                "The psycopg[binary] package is required for database migrations",
-                code="PSYCOPG_PACKAGE_MISSING",
-            ) from exc
-
-        return psycopg.connect(self.database_url, row_factory=dict_row)
+        return connect_postgres(
+            self.database_url,
+            package_error_message=(
+                "The psycopg[binary] package is required for database migrations"
+            ),
+        )
 
     def _ensure_schema_migrations(self, connection: Any) -> None:
         connection.execute(

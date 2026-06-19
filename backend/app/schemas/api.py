@@ -48,6 +48,7 @@ class SearchRequest(BaseModel):
 class RetrievedChunkResponse(BaseModel):
     rank: int = Field(ge=1)
     score: float
+    document_id: str | None = None
     file_name: str | None = None
     file_type: str | None = None
     source_refs: list[str] = Field(default_factory=list)

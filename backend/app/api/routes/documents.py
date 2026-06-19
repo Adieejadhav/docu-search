@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import mimetypes
 import os
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_chunk_index, get_ingestion_job_service
 from app.core.exceptions import RetrievalError
@@ -39,6 +41,47 @@ def list_documents(
             DocumentSummary.model_validate(document)
             for document in documents
         ],
+    )
+
+
+@router.get("/{document_id}/source")
+def open_document_source(
+    document_id: str,
+    index: PgVectorChunkIndex = Depends(get_chunk_index),
+) -> FileResponse:
+    document = index.get_document(document_id)
+    if document is None:
+        raise RetrievalError(
+            "Document was not found",
+            code="DOCUMENT_NOT_FOUND",
+            details={"document_id": document_id},
+        )
+    if not document.source_path:
+        raise RetrievalError(
+            "Document source file path is missing",
+            code="DOCUMENT_SOURCE_PATH_MISSING",
+            details={"document_id": document_id},
+        )
+
+    source_path = Path(document.source_path).expanduser()
+    if not source_path.is_absolute():
+        source_path = source_path.resolve()
+    if not source_path.is_file():
+        raise RetrievalError(
+            "Document source file was not found on disk",
+            code="DOCUMENT_SOURCE_FILE_NOT_FOUND",
+            details={
+                "document_id": document_id,
+                "source_path": str(source_path),
+            },
+        )
+
+    media_type, _ = mimetypes.guess_type(document.file_name)
+    return FileResponse(
+        source_path,
+        media_type=media_type or "application/octet-stream",
+        filename=document.file_name,
+        content_disposition_type="inline",
     )
 
 

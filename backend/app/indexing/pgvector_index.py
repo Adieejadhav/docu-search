@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.exceptions import RetrievalError
 from app.core.env import load_environment
+from app.db.connection import connect_postgres
 from app.ingestion.chunking import ChildChunk, ChunkedDocument, ParentChunk
 from app.embeddings import (
     EmbeddingProvider,
@@ -407,16 +408,12 @@ class PgVectorChunkIndex:
         return row is not None
 
     def _connect(self) -> Any:
-        try:
-            import psycopg
-            from psycopg.rows import dict_row
-        except ImportError as exc:
-            raise RetrievalError(
-                "The psycopg[binary] package is required for PostgreSQL indexing",
-                code="PSYCOPG_PACKAGE_MISSING",
-            ) from exc
-
-        return psycopg.connect(self.database_url, row_factory=dict_row)
+        return connect_postgres(
+            self.database_url,
+            package_error_message=(
+                "The psycopg[binary] package is required for PostgreSQL indexing"
+            ),
+        )
 
     def _lock_schema_initialization(self, connection: Any) -> None:
         connection.execute("SELECT pg_advisory_xact_lock(420240519826)")

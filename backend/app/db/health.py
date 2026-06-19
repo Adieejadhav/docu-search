@@ -8,6 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.exceptions import AppError
+from app.db.connection import connect_postgres
+
 
 @dataclass(frozen=True)
 class DatabaseHealth:
@@ -17,19 +20,12 @@ class DatabaseHealth:
 
 def check_database_health(database_url: str) -> DatabaseHealth:
     try:
-        import psycopg
-        from psycopg.rows import dict_row
-    except ImportError as exc:
-        return DatabaseHealth(
-            ok=False,
-            details={
-                "error": "PSYCOPG_PACKAGE_MISSING",
-                "message": str(exc),
-            },
-        )
-
-    try:
-        with psycopg.connect(database_url, row_factory=dict_row) as connection:
+        with connect_postgres(
+            database_url,
+            package_error_message=(
+                "The psycopg[binary] package is required for database health checks"
+            ),
+        ) as connection:
             ping = connection.execute("SELECT 1 AS ok").fetchone()
             extension = connection.execute(
                 """
@@ -61,6 +57,16 @@ def check_database_health(database_url: str) -> DatabaseHealth:
             },
         )
     except Exception as exc:
+        if isinstance(exc, AppError):
+            return DatabaseHealth(
+                ok=False,
+                details={
+                    "error": exc.code,
+                    "message": exc.message,
+                    **({"details": exc.details} if exc.details else {}),
+                },
+            )
+
         return DatabaseHealth(
             ok=False,
             details={

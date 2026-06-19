@@ -23,7 +23,7 @@ shell environment variables for normal local testing.
 Required values:
 
 ```text
-DATABASE_URL=postgresql://docusearch:docusearch@localhost:55432/docusearch
+DATABASE_URL=postgresql://docusearch:docusearch@127.0.0.1:55432/docusearch
 EMBEDDING_PROVIDER=local
 LOCAL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 LOCAL_EMBEDDING_DIMENSIONS=384

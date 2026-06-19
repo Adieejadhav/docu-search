@@ -44,7 +44,8 @@ npm run dev -- --host 127.0.0.1 --port 5174
 Backend:
 
 ```dotenv
-DATABASE_URL=postgresql://docusearch:docusearch@localhost:55432/docusearch
+DATABASE_URL=postgresql://docusearch:docusearch@127.0.0.1:55432/docusearch
+DATABASE_CONNECT_TIMEOUT_SECONDS=2
 LOCAL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 LOCAL_EMBEDDING_DIMENSIONS=384
 INGESTION_RUN_MODE=background

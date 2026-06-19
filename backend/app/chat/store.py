@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from app.core.env import load_environment
 from app.core.exceptions import RetrievalError
+from app.db.connection import connect_postgres
 
 ChatRole = Literal["user", "assistant"]
 
@@ -280,16 +281,12 @@ class ChatStore:
         return row is not None
 
     def _connect(self) -> Any:
-        try:
-            import psycopg
-            from psycopg.rows import dict_row
-        except ImportError as exc:
-            raise RetrievalError(
-                "The psycopg[binary] package is required for chat history persistence",
-                code="PSYCOPG_PACKAGE_MISSING",
-            ) from exc
-
-        return psycopg.connect(self.database_url, row_factory=dict_row)
+        return connect_postgres(
+            self.database_url,
+            package_error_message=(
+                "The psycopg[binary] package is required for chat history persistence"
+            ),
+        )
 
     def _session_from_row(self, row: dict[str, Any]) -> ChatSessionRecord:
         return ChatSessionRecord(

@@ -17,6 +17,15 @@ export function AppShell({
   const location = useLocation();
   const { documents, health } = useAppData();
   const title = titleForPath(location.pathname);
+  const isChatRoute = location.pathname.startsWith("/chat");
+
+  if (isChatRoute) {
+    return (
+      <main className="min-h-screen bg-[#f7f7f5] text-slate-900">
+        {children}
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
