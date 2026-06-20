@@ -10,7 +10,6 @@ import {
 } from "react";
 import {
   Bot,
-  ExternalLink,
   FileSearch,
   LogIn,
   Menu,
@@ -575,7 +574,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <article className="flex w-full justify-start">
       <div className="min-w-0 flex-1 px-1">
         <div className="text-[15px] leading-7 text-slate-800">
-          {isStreaming ? <LoadingDots /> : <ChatMarkdown text={message.content} />}
+          {isStreaming ? (
+            <LoadingDots />
+          ) : (
+            <ChatMarkdown text={message.content} sources={message.sources ?? []} />
+          )}
         </div>
         {!!message.sources?.length && <CitationLinks sources={message.sources} />}
         <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
@@ -588,81 +591,144 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function ChatMarkdown({ text }: { text: string }) {
+function ChatMarkdown({
+  text,
+  sources,
+}: {
+  text: string;
+  sources: RetrievedChunkResponse[];
+}) {
   return (
     <ReactMarkdown
       components={{
         a: ({ children, ...props }) => (
           <a
             {...props}
-            className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-700"
+            className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-700"
             rel="noreferrer"
             target="_blank"
           >
             {children}
           </a>
         ),
+        blockquote: ({ children }) => (
+          <blockquote className="my-4 border-l-2 border-slate-300 pl-4 text-slate-600">
+            {children}
+          </blockquote>
+        ),
         code: ({ children }) => (
-          <code className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-slate-700">
+          <code className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.9em] text-slate-700">
             {children}
           </code>
         ),
-        li: ({ children }) => <li className="my-1 pl-1">{children}</li>,
-        ol: ({ children }) => (
-          <ol className="my-3 list-decimal space-y-1 pl-5">{children}</ol>
+        h1: ({ children }) => (
+          <h1 className="mb-3 mt-6 text-xl font-semibold leading-7 text-slate-950 first:mt-0">
+            {children}
+          </h1>
         ),
-        p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-        ul: ({ children }) => <ul className="my-3 list-disc space-y-1 pl-5">{children}</ul>,
+        h2: ({ children }) => (
+          <h2 className="mb-2 mt-5 text-lg font-semibold leading-7 text-slate-950 first:mt-0">
+            {children}
+          </h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="mb-2 mt-4 text-base font-semibold leading-6 text-slate-900 first:mt-0">
+            {children}
+          </h3>
+        ),
+        hr: () => <hr className="my-5 border-0 border-t border-slate-200" />,
+        li: ({ children }) => <li className="my-1.5 pl-1">{children}</li>,
+        ol: ({ children }) => (
+          <ol className="my-3 list-decimal space-y-1 pl-6 marker:font-medium marker:text-slate-500">
+            {children}
+          </ol>
+        ),
+        p: ({ children }) => <p className="mb-3 leading-7 last:mb-0">{children}</p>,
+        pre: ({ children }) => (
+          <pre className="my-4 overflow-x-auto rounded-lg bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-inherit">
+            {children}
+          </pre>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold text-slate-950">{children}</strong>
+        ),
+        table: ({ children }) => (
+          <div className="my-4 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full border-collapse text-left text-sm">{children}</table>
+          </div>
+        ),
+        td: ({ children }) => (
+          <td className="border-t border-slate-200 px-3 py-2.5 align-top text-slate-700">
+            {children}
+          </td>
+        ),
+        th: ({ children }) => (
+          <th className="bg-slate-50 px-3 py-2.5 font-semibold text-slate-900">
+            {children}
+          </th>
+        ),
+        ul: ({ children }) => (
+          <ul className="my-3 list-disc space-y-1 pl-6 marker:text-slate-400">
+            {children}
+          </ul>
+        ),
       }}
       remarkPlugins={[remarkGfm]}
     >
-      {text}
+      {linkCitationMarkers(text, sources)}
     </ReactMarkdown>
   );
 }
 
 function CitationLinks({ sources }: { sources: RetrievedChunkResponse[] }) {
   return (
-    <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-      {sources.map((source) => {
-        const href = sourceDocumentUrl(source);
-        const label = `[${source.rank}] ${source.file_name ?? "source"}`;
-        const titleParts = [
-          source.file_name ?? "source",
-          source.source_refs.join(", "),
-          source.parent_path.join(" > "),
-          scorePercent(source.score),
-        ].filter(Boolean);
-
-        if (!href) {
-          return (
-            <button
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-400"
-              disabled
-              key={source.child_chunk_id}
-              title="This saved source does not include a document id yet."
-              type="button"
-            >
-              {label}
-            </button>
+    <section className="mt-5 border-t border-slate-200 pt-4" aria-label="References">
+      <p className="mb-2 text-sm font-medium text-slate-700">References</p>
+      <ol className="space-y-2">
+        {sources.map((source) => {
+          const href = sourceDocumentUrl(source);
+          const section = source.parent_path.join(" > ");
+          const location = source.source_refs.join(", ");
+          const details = [section, location].filter(Boolean).join(" - ");
+          const content = (
+            <>
+              <span className="font-medium text-slate-700">
+                {source.file_name ?? "Source document"}
+              </span>
+              {details && <span className="text-slate-500"> - {details}</span>}
+            </>
           );
-        }
 
-        return (
-          <a
-            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
-            href={href}
-            key={source.child_chunk_id}
-            rel="noreferrer"
-            target="_blank"
-            title={titleParts.join(" - ")}
-          >
-            <span className="truncate">{label}</span>
-            <ExternalLink size={13} />
-          </a>
-        );
-      })}
-    </div>
+          return (
+            <li
+              className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start text-sm leading-6"
+              id={`source-${source.rank}`}
+              key={source.child_chunk_id}
+            >
+              <span className="text-slate-400">{source.rank}.</span>
+              {href ? (
+                <a
+                  className="min-w-0 text-slate-600 underline decoration-slate-200 underline-offset-4 transition hover:text-slate-900 hover:decoration-slate-500"
+                  href={href}
+                  rel="noreferrer"
+                  target="_blank"
+                  title={`Open source - relevance ${scorePercent(source.score)}`}
+                >
+                  {content}
+                </a>
+              ) : (
+                <span
+                  className="min-w-0 text-slate-400"
+                  title="This saved source does not include a document id yet."
+                >
+                  {content}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -703,6 +769,40 @@ function chatMessageFromResponse(message: ChatMessageResponse): ChatMessage {
     model: message.llm_model ?? undefined,
     traceId: message.trace_id ?? undefined,
   };
+}
+
+function linkCitationMarkers(
+  text: string,
+  sources: RetrievedChunkResponse[],
+): string {
+  const urlsByRank = new Map(
+    sources.flatMap((source) => {
+      const url = sourceDocumentUrl(source);
+      return url ? [[source.rank, url] as const] : [];
+    }),
+  );
+
+  if (!urlsByRank.size) return text;
+
+  return text
+    .split(/(```[\s\S]*?```|`[^`\n]+`)/g)
+    .map((segment) => {
+      if (segment.startsWith("`")) return segment;
+
+      return segment
+        .replace(/\[(\d+)\](?!\()/g, (marker, rankText: string) => {
+          const url = urlsByRank.get(Number(rankText));
+          return url ? `[${rankText}](${url})` : marker;
+        })
+        .replace(
+          /\u3010(\d+)(?:\u2020[^\u3011]*)?\u3011/g,
+          (marker, rankText: string) => {
+            const url = urlsByRank.get(Number(rankText));
+            return url ? `[${rankText}](${url})` : marker;
+          },
+        );
+    })
+    .join("");
 }
 
 function sourceDocumentUrl(source: RetrievedChunkResponse): string | undefined {
