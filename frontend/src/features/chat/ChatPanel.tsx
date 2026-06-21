@@ -9,10 +9,15 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  Bot,
+  ArrowDown,
+  ArrowUpRight,
+  Check,
+  Copy,
   FileSearch,
   LogIn,
+  LoaderCircle,
   Menu,
+  MessageSquare,
   MessageSquarePlus,
   PanelLeftClose,
   Search,
@@ -47,6 +52,8 @@ const SIDEBAR_DEFAULT_WIDTH = 304;
 const COMPOSER_MIN_HEIGHT = 40;
 const COMPOSER_MAX_HEIGHT = 200;
 
+type StreamPhase = "searching" | "answering" | null;
+
 const SUGGESTIONS = [
   "Which policy mentions the 14-day satellite-mode exception?",
   "Which team owns model-assisted triage?",
@@ -65,29 +72,43 @@ export function ChatPanel({
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
   const [isLoadingSessions, setLoadingSessions] = useState(false);
   const [isLoadingSession, setLoadingSession] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
+  const [streamPhase, setStreamPhase] = useState<StreamPhase>(null);
+  const [isNearBottom, setNearBottom] = useState(true);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isResizingSidebar, setResizingSidebar] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const draftInputRef = useRef<HTMLTextAreaElement>(null);
+  const isNearBottomRef = useRef(true);
 
   const hasConversation = messages.length > 0;
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
     [activeSessionId, sessions],
   );
+  const filteredSessions = useMemo(() => {
+    const query = historyQuery.trim().toLocaleLowerCase();
+    if (!query) return sessions;
+    return sessions.filter((session) =>
+      session.title.toLocaleLowerCase().includes(query),
+    );
+  }, [historyQuery, sessions]);
 
   useEffect(() => {
     void refreshSessions();
   }, []);
 
   useEffect(() => {
-    messageListRef.current?.scrollTo({
-      top: messageListRef.current.scrollHeight,
-      behavior: "smooth",
+    const messageList = messageListRef.current;
+    if (!messageList || !isNearBottomRef.current) return;
+
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: isAsking ? "auto" : "smooth",
     });
   }, [messages, isAsking]);
 
@@ -147,6 +168,7 @@ export function ChatPanel({
   async function loadSession(sessionId: string) {
     setLoadingSession(true);
     setActiveSessionId(sessionId);
+    markConversationAtBottom();
     onError(null);
     try {
       const session = await getChatSession(sessionId);
@@ -163,8 +185,16 @@ export function ChatPanel({
     setActiveSessionId(null);
     setMessages([]);
     setDraft("");
+    setStreamPhase(null);
+    markConversationAtBottom();
     onError(null);
     closeSidebarOnNarrowViewport(setSidebarOpen);
+    window.requestAnimationFrame(() => draftInputRef.current?.focus());
+  }
+
+  function selectSuggestion(value: string) {
+    setDraft(value);
+    window.requestAnimationFrame(() => draftInputRef.current?.focus());
   }
 
   async function removeSession(
@@ -191,6 +221,8 @@ export function ChatPanel({
 
     setDraft("");
     setIsAsking(true);
+    setStreamPhase("searching");
+    markConversationAtBottom();
     onError(null);
 
     const streamAssistantId = crypto.randomUUID();
@@ -216,16 +248,11 @@ export function ChatPanel({
               },
             ]);
           },
-          onRetrieval: (payload) => {
-            setMessages((current) =>
-              current.map((message) =>
-                message.id === streamAssistantId
-                  ? { ...message, sources: payload.results }
-                  : message,
-              ),
-            );
+          onRetrieval: () => {
+            setStreamPhase("answering");
           },
           onDelta: (text) => {
+            setStreamPhase("answering");
             setMessages((current) =>
               current.map((message) =>
                 message.id === streamAssistantId
@@ -235,6 +262,7 @@ export function ChatPanel({
             );
           },
           onComplete: (payload) => {
+            setStreamPhase(null);
             setActiveSessionId(payload.session.id);
             setMessages((current) =>
               current.map((message) =>
@@ -251,6 +279,7 @@ export function ChatPanel({
       );
       await refreshSessions(false);
     } catch (caught) {
+      setStreamPhase(null);
       onError(messageFromError(caught));
       setDraft(question);
       setMessages((current) =>
@@ -266,7 +295,32 @@ export function ChatPanel({
       );
     } finally {
       setIsAsking(false);
+      setStreamPhase(null);
     }
+  }
+
+  function handleMessageScroll() {
+    const messageList = messageListRef.current;
+    if (!messageList) return;
+
+    const distanceFromBottom =
+      messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight;
+    const nearBottom = distanceFromBottom < 96;
+    isNearBottomRef.current = nearBottom;
+    setNearBottom(nearBottom);
+  }
+
+  function markConversationAtBottom() {
+    isNearBottomRef.current = true;
+    setNearBottom(true);
+  }
+
+  function scrollToLatest() {
+    markConversationAtBottom();
+    messageListRef.current?.scrollTo({
+      top: messageListRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }
 
   function startSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
@@ -275,7 +329,7 @@ export function ChatPanel({
   }
 
   return (
-    <section className="flex h-screen overflow-hidden bg-[#f7f7f5] text-slate-800">
+    <section className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {isSidebarOpen && (
         <button
           aria-label="Close chat history"
@@ -287,19 +341,19 @@ export function ChatPanel({
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-30 flex h-screen w-[min(86vw,320px)] flex-col overflow-hidden border-r border-slate-200/80 bg-[#f4f3f0] shadow-2xl shadow-slate-950/10 transition-transform md:static md:z-auto md:w-auto md:translate-x-0 md:shadow-none",
+          "fixed inset-y-0 left-0 z-30 flex h-screen w-[min(86vw,320px)] flex-col overflow-hidden border-r border-slate-200 bg-[#f4f5f7] shadow-2xl shadow-slate-950/10 transition-transform md:static md:z-auto md:w-auto md:translate-x-0 md:shadow-none",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
         style={{ width: isSidebarOpen ? sidebarWidth : 0 }}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 px-3 py-3">
-            <div className="grid size-8 place-items-center rounded-lg bg-slate-900 text-white">
-              <Sparkles size={17} />
+          <div className="flex items-center gap-2.5 px-3 pb-3 pt-3.5">
+            <div className="grid size-9 place-items-center rounded-lg bg-slate-900 text-white shadow-[0_3px_10px_rgba(15,23,42,0.18)]">
+              <Sparkles size={18} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-800">Docu Search</p>
-              <p className="truncate text-xs text-slate-500">Document chat</p>
+              <p className="truncate text-sm font-medium text-slate-900">Docu Search</p>
+              <p className="truncate text-xs text-slate-500">Knowledge workspace</p>
             </div>
             <button
               aria-label="Close sidebar"
@@ -311,49 +365,79 @@ export function ChatPanel({
             </button>
           </div>
 
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 pt-1">
             <button
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+              className="group flex h-11 w-full items-center justify-start gap-2.5 rounded-lg border border-slate-900 bg-slate-900 px-2.5 text-sm font-normal text-white shadow-[0_4px_14px_rgba(15,23,42,0.16)] transition hover:border-slate-700 hover:bg-slate-800 hover:shadow-[0_6px_18px_rgba(15,23,42,0.20)]"
               onClick={startNewChat}
               type="button"
             >
-              <MessageSquarePlus size={16} />
+              <span className="grid size-7 place-items-center rounded-md bg-white/10 transition group-hover:bg-white/15">
+                <MessageSquarePlus size={16} />
+              </span>
               New chat
             </button>
           </div>
 
-          <div className="px-3 pb-2">
-            <div className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 text-sm text-slate-500">
-              <Search size={15} />
-              <span className="truncate">Search history coming soon</span>
+          <div className="px-3 pb-3">
+            <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white/80 px-2.5 text-slate-500 shadow-sm transition focus-within:border-slate-300 focus-within:bg-white">
+              <Search className="shrink-0" size={15} />
+              <input
+                aria-label="Search chat history"
+                className="!h-auto min-w-0 flex-1 !border-0 !bg-transparent !p-0 text-sm text-slate-700 !shadow-none !outline-none placeholder:text-slate-400 focus:!border-transparent focus:!shadow-none"
+                onChange={(event) => setHistoryQuery(event.target.value)}
+                placeholder="Search chats"
+                type="text"
+                value={historyQuery}
+              />
+              {historyQuery && (
+                <button
+                  aria-label="Clear history search"
+                  className="grid size-6 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  onClick={() => setHistoryQuery("")}
+                  type="button"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-            <p className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-normal text-slate-400">
-              Recent
-            </p>
+            <div className="flex items-center justify-between px-2 pb-2.5 pt-1 text-xs text-slate-400">
+              <span className="font-normal text-slate-500">Recent chats</span>
+              <span>{filteredSessions.length}</span>
+            </div>
             {isLoadingSessions && <HistorySkeleton />}
             {!isLoadingSessions &&
-              sessions.map((session) => (
+              filteredSessions.map((session) => (
                 <div
                   className={[
-                    "group flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition",
+                    "group relative mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm transition",
                     session.id === activeSessionId
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
+                      ? "bg-white text-slate-950 shadow-[0_2px_8px_rgba(15,23,42,0.07)] ring-1 ring-slate-200"
+                      : "text-slate-600 hover:bg-white/80 hover:text-slate-900",
                   ].join(" ")}
                   key={session.id}
                 >
+                  {session.id === activeSessionId && (
+                    <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sky-600" />
+                  )}
                   <button
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                     onClick={() => void loadSession(session.id)}
                     type="button"
                   >
-                    <Bot size={16} className="shrink-0 text-slate-400" />
+                    <MessageSquare
+                      className={
+                        session.id === activeSessionId
+                          ? "shrink-0 text-sky-600"
+                          : "shrink-0 text-slate-400"
+                      }
+                      size={16}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-normal">{session.title}</span>
-                      <span className="block truncate text-xs text-slate-400">
+                      <span className="mt-0.5 block truncate text-xs text-slate-400">
                         {session.message_count} messages - {formatDateTime(session.updated_at)}
                       </span>
                     </span>
@@ -368,25 +452,25 @@ export function ChatPanel({
                   </button>
                 </div>
               ))}
-            {!isLoadingSessions && !sessions.length && (
-              <div className="mx-2 rounded-xl border border-dashed border-slate-300 bg-white/60 p-4 text-center text-sm text-slate-500">
-                No saved chats yet.
+            {!isLoadingSessions && !filteredSessions.length && (
+              <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-white/50 p-4 text-center text-sm text-slate-500">
+                {historyQuery ? "No matching chats." : "No saved chats yet."}
               </div>
             )}
           </div>
 
-          <footer className="border-t border-slate-200 p-3">
-            <div className="flex items-center gap-2 rounded-xl bg-white px-2.5 py-2 shadow-sm">
-              <div className="grid size-9 place-items-center rounded-full bg-slate-100 text-slate-600">
+          <footer className="border-t border-slate-200 bg-white/25 px-3 py-2.5">
+            <div className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-white/80">
+              <div className="grid size-9 place-items-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200">
                 <UserCircle size={20} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-800">Guest workspace</p>
+                <p className="truncate text-sm font-normal text-slate-800">Guest workspace</p>
                 <p className="truncate text-xs text-slate-400">Local profile</p>
               </div>
               <Link
                 aria-label="Settings"
-                className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                className="grid size-8 place-items-center rounded-lg text-slate-500 transition hover:bg-white hover:text-slate-900"
                 title="Settings"
                 to="/admin/overview"
               >
@@ -394,7 +478,7 @@ export function ChatPanel({
               </Link>
               <button
                 aria-label="Sign in"
-                className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                className="grid size-8 place-items-center rounded-lg text-slate-500 transition hover:bg-white hover:text-slate-900"
                 title="Sign in"
                 type="button"
               >
@@ -411,12 +495,12 @@ export function ChatPanel({
         />
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-[#f7f7f5]/95 px-3 backdrop-blur md:px-5">
+      <section className="flex min-w-0 flex-1 flex-col bg-slate-50">
+        <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white/80 px-3 backdrop-blur md:px-5">
           <div className="flex min-w-0 items-center gap-2">
             <button
               aria-label="Open chat history"
-              className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 md:hidden"
+              className="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 md:hidden"
               onClick={() => setSidebarOpen(true)}
               type="button"
             >
@@ -424,69 +508,88 @@ export function ChatPanel({
             </button>
             <button
               aria-label="Show chat history"
-              className="hidden size-9 place-items-center rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 md:grid"
+              className="hidden size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 md:grid"
               onClick={() => setSidebarOpen((current) => !current)}
               type="button"
             >
               <PanelLeftClose size={18} />
             </button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-900">
+              <p className="truncate text-sm font-normal text-slate-900">
                 {activeSession?.title || "New chat"}
-              </p>
-              <p className="truncate text-xs text-slate-400">
-                Answers use indexed documents and saved source traces.
               </p>
             </div>
           </div>
-          <Link
-            className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-900"
-            to="/admin/overview"
-          >
-            Admin
-          </Link>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8" ref={messageListRef}>
-          {!hasConversation && !isLoadingSession && (
-            <WelcomePanel onSelectSuggestion={setDraft} />
-          )}
-
-          <div className="mx-auto flex w-full max-w-[768px] flex-col gap-7">
-            {error && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {error}
-              </div>
+        <div className="relative min-h-0 flex-1">
+          <div
+            className="h-full overflow-y-auto px-4 py-6 md:px-8"
+            onScroll={handleMessageScroll}
+            ref={messageListRef}
+          >
+            {!hasConversation && !isLoadingSession && (
+              <WelcomePanel onSelectSuggestion={selectSuggestion} />
             )}
 
-            {isLoadingSession && (
-              <div className="space-y-3">
-                <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200" />
-                <div className="h-4 w-1/2 animate-pulse rounded-full bg-slate-200" />
-                <div className="h-4 w-5/6 animate-pulse rounded-full bg-slate-200" />
-              </div>
-            )}
-
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))}
-
-            {isAsking && !messages.some((message) => message.model === "streaming") && (
-              <div className="flex w-full justify-start px-1">
-                <div className="py-2">
-                  <LoadingDots />
+            <div className="mx-auto flex w-full max-w-[768px] flex-col gap-8 pb-2">
+              {error && (
+                <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  <span className="min-w-0 flex-1">{error}</span>
+                  <button
+                    aria-label="Dismiss error"
+                    className="grid size-7 shrink-0 place-items-center rounded-md text-rose-500 transition hover:bg-rose-100 hover:text-rose-700"
+                    onClick={() => onError(null)}
+                    type="button"
+                  >
+                    <X size={15} />
+                  </button>
                 </div>
-              </div>
-            )}
+              )}
+
+              {isLoadingSession && (
+                <div className="space-y-3 py-4">
+                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-slate-200" />
+                  <div className="h-4 w-1/2 animate-pulse rounded-full bg-slate-200" />
+                  <div className="h-4 w-5/6 animate-pulse rounded-full bg-slate-200" />
+                </div>
+              )}
+
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  streamPhase={message.model === "streaming" ? streamPhase : null}
+                />
+              ))}
+
+              {isAsking && !messages.some((message) => message.model === "streaming") && (
+                <div className="flex w-full justify-start px-1 py-2">
+                  <StreamStatus phase={streamPhase ?? "searching"} />
+                </div>
+              )}
+            </div>
           </div>
+
+          {!isNearBottom && hasConversation && (
+            <button
+              aria-label="Scroll to latest message"
+              className="absolute bottom-4 left-1/2 z-10 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg transition hover:border-slate-300 hover:text-slate-900"
+              onClick={scrollToLatest}
+              title="Scroll to latest"
+              type="button"
+            >
+              <ArrowDown size={17} />
+            </button>
+          )}
         </div>
 
         <form
-          className="shrink-0 bg-[#f7f7f5]/95 px-3 pb-4 pt-2 md:px-6"
+          className="shrink-0 bg-slate-50 px-3 pb-4 pt-2 md:px-6"
           onSubmit={(event) => void submitQuestion(event)}
         >
           <div className="mx-auto w-full max-w-[768px]">
-            <div className="flex min-h-14 items-end gap-2 rounded-[28px] border border-slate-200 bg-white px-4 py-2 shadow-[0_2px_18px_rgba(15,23,42,0.10)] transition focus-within:border-slate-300 focus-within:shadow-[0_4px_24px_rgba(15,23,42,0.12)]">
+            <div className="flex min-h-14 items-end gap-2 rounded-[28px] border border-slate-200 bg-white px-4 py-2 shadow-[0_3px_20px_rgba(15,23,42,0.10)] transition focus-within:border-blue-300 focus-within:shadow-[0_5px_26px_rgba(15,23,42,0.13)]">
               <textarea
                 aria-label="Message Docu Search"
                 className="block max-h-[200px] !min-h-10 flex-1 !resize-none overflow-hidden !rounded-none !border-0 !bg-transparent !px-0 !py-2 text-[15px] leading-6 text-slate-800 !shadow-none !outline-none placeholder:text-slate-400 focus:!border-transparent focus:!shadow-none focus:!ring-0"
@@ -497,7 +600,7 @@ export function ChatPanel({
                     event.currentTarget.form?.requestSubmit();
                   }
                 }}
-                placeholder="Message Docu Search"
+                placeholder={isAsking ? "Generating response..." : "Message Docu Search"}
                 ref={draftInputRef}
                 rows={1}
                 value={draft}
@@ -508,12 +611,13 @@ export function ChatPanel({
                 disabled={!draft.trim() || isAsking}
                 type="submit"
               >
-                <SendHorizontal size={17} />
+                {isAsking ? (
+                  <LoaderCircle className="animate-spin" size={17} />
+                ) : (
+                  <SendHorizontal size={17} />
+                )}
               </button>
             </div>
-            <p className="mt-2 text-center text-xs text-slate-400">
-              Press Enter to send, Shift+Enter for a new line.
-            </p>
           </div>
         </form>
       </section>
@@ -527,29 +631,29 @@ function WelcomePanel({
   onSelectSuggestion: (value: string) => void;
 }) {
   return (
-    <section className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center py-10">
+    <section className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-center py-10">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm">
+        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700 shadow-sm">
           <FileSearch size={23} />
         </div>
-        <h1 className="text-3xl font-normal tracking-normal text-slate-900 md:text-4xl">
+        <h1 className="text-2xl font-normal tracking-normal text-slate-950 md:text-3xl">
           What should we look up?
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-          Ask a question and Docu Search will retrieve the relevant chunks, generate
-          a grounded answer, and keep the conversation in history.
-        </p>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         {SUGGESTIONS.map((suggestion) => (
           <button
-            className="rounded-2xl border border-slate-200 bg-white/85 p-4 text-left text-sm leading-5 text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+            className="group flex min-h-16 items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left text-sm leading-5 text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-slate-900 hover:shadow-md"
             key={suggestion}
             onClick={() => onSelectSuggestion(suggestion)}
             type="button"
           >
-            {suggestion}
+            <span className="min-w-0 flex-1">{suggestion}</span>
+            <ArrowUpRight
+              className="shrink-0 text-slate-300 transition group-hover:text-blue-600"
+              size={16}
+            />
           </button>
         ))}
       </div>
@@ -557,7 +661,25 @@ function WelcomePanel({
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  streamPhase,
+}: {
+  message: ChatMessage;
+  streamPhase: StreamPhase;
+}) {
+  const [isCopied, setCopied] = useState(false);
+
+  async function copyMessage() {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   if (message.role === "user") {
     return (
       <article className="flex justify-end">
@@ -568,24 +690,35 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     );
   }
 
-  const isStreaming = message.model === "streaming" && !message.content;
+  const isStreaming = message.model === "streaming";
+  const isWaitingForFirstToken = isStreaming && !message.content;
 
   return (
-    <article className="flex w-full justify-start">
+    <article className="group flex w-full justify-start">
       <div className="min-w-0 flex-1 px-1">
         <div className="text-[15px] leading-7 text-slate-800">
-          {isStreaming ? (
-            <LoadingDots />
+          {isWaitingForFirstToken ? (
+            <StreamStatus phase={streamPhase ?? "answering"} />
           ) : (
             <ChatMarkdown text={message.content} sources={message.sources ?? []} />
           )}
         </div>
-        {!!message.sources?.length && <CitationLinks sources={message.sources} />}
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
-          {message.model && message.model !== "streaming" && <span>{message.model}</span>}
-          {message.latencyMs !== undefined && <span>{message.latencyMs}ms</span>}
-          {message.traceId && <span>trace {message.traceId.slice(0, 8)}</span>}
-        </div>
+        {!isStreaming && message.content && (
+          <div className="mt-1 flex min-h-8 items-center opacity-100 transition md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+            <button
+              aria-label={isCopied ? "Response copied" : "Copy response"}
+              className="grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              onClick={() => void copyMessage()}
+              title={isCopied ? "Copied" : "Copy response"}
+              type="button"
+            >
+              {isCopied ? <Check size={15} /> : <Copy size={15} />}
+            </button>
+          </div>
+        )}
+        {!isStreaming && !!message.sources?.length && (
+          <CitationLinks sources={message.sources} />
+        )}
       </div>
     </article>
   );
@@ -604,7 +737,7 @@ function ChatMarkdown({
         a: ({ children, ...props }) => (
           <a
             {...props}
-            className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-700"
+            className="font-normal !text-blue-600 underline decoration-blue-200 underline-offset-4 transition hover:!text-blue-800 hover:decoration-blue-500"
             rel="noreferrer"
             target="_blank"
           >
@@ -622,17 +755,17 @@ function ChatMarkdown({
           </code>
         ),
         h1: ({ children }) => (
-          <h1 className="mb-3 mt-6 text-xl font-semibold leading-7 text-slate-950 first:mt-0">
+          <h1 className="mb-3 mt-6 text-lg font-medium leading-7 text-slate-950 first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mb-2 mt-5 text-lg font-semibold leading-7 text-slate-950 first:mt-0">
+          <h2 className="mb-2 mt-5 text-base font-medium leading-7 text-slate-950 first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mb-2 mt-4 text-base font-semibold leading-6 text-slate-900 first:mt-0">
+          <h3 className="mb-2 mt-4 text-sm font-medium leading-6 text-slate-900 first:mt-0">
             {children}
           </h3>
         ),
@@ -650,7 +783,7 @@ function ChatMarkdown({
           </pre>
         ),
         strong: ({ children }) => (
-          <strong className="font-semibold text-slate-950">{children}</strong>
+          <strong className="font-medium text-slate-950">{children}</strong>
         ),
         table: ({ children }) => (
           <div className="my-4 overflow-x-auto rounded-lg border border-slate-200">
@@ -663,7 +796,7 @@ function ChatMarkdown({
           </td>
         ),
         th: ({ children }) => (
-          <th className="bg-slate-50 px-3 py-2.5 font-semibold text-slate-900">
+          <th className="bg-slate-50 px-3 py-2.5 font-medium text-slate-900">
             {children}
           </th>
         ),
@@ -681,53 +814,43 @@ function ChatMarkdown({
 }
 
 function CitationLinks({ sources }: { sources: RetrievedChunkResponse[] }) {
+  const uniqueSources = uniqueDocumentSources(sources);
+
   return (
-    <section className="mt-5 border-t border-slate-200 pt-4" aria-label="References">
-      <p className="mb-2 text-sm font-medium text-slate-700">References</p>
-      <ol className="space-y-2">
-        {sources.map((source) => {
+    <section className="mt-5 border-t border-blue-100 pt-3.5" aria-label="Source documents">
+      <ul className="space-y-2">
+        {uniqueSources.map((source) => {
           const href = sourceDocumentUrl(source);
-          const section = source.parent_path.join(" > ");
-          const location = source.source_refs.join(", ");
-          const details = [section, location].filter(Boolean).join(" - ");
-          const content = (
-            <>
-              <span className="font-medium text-slate-700">
-                {source.file_name ?? "Source document"}
-              </span>
-              {details && <span className="text-slate-500"> - {details}</span>}
-            </>
-          );
+          const fileName = source.file_name ?? "Source document";
 
           return (
             <li
-              className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start text-sm leading-6"
+              className="min-w-0 text-base leading-7"
               id={`source-${source.rank}`}
               key={source.child_chunk_id}
             >
-              <span className="text-slate-400">{source.rank}.</span>
               {href ? (
                 <a
-                  className="min-w-0 text-slate-600 underline decoration-slate-200 underline-offset-4 transition hover:text-slate-900 hover:decoration-slate-500"
+                  className="break-words font-medium !text-blue-600 transition hover:!text-blue-800"
                   href={href}
                   rel="noreferrer"
                   target="_blank"
                   title={`Open source - relevance ${scorePercent(source.score)}`}
                 >
-                  {content}
+                  {fileName}
                 </a>
               ) : (
                 <span
-                  className="min-w-0 text-slate-400"
+                  className="break-words font-medium text-slate-400"
                   title="This saved source does not include a document id yet."
                 >
-                  {content}
+                  {fileName}
                 </span>
               )}
             </li>
           );
         })}
-      </ol>
+      </ul>
     </section>
   );
 }
@@ -745,9 +868,21 @@ function HistorySkeleton() {
   );
 }
 
+function StreamStatus({ phase }: { phase: Exclude<StreamPhase, null> }) {
+  return (
+    <div
+      aria-live="polite"
+      className="flex min-h-8 items-center gap-2.5 text-sm text-slate-500"
+    >
+      <LoadingDots />
+      <span>{phase === "searching" ? "Searching documents" : "Writing answer"}</span>
+    </div>
+  );
+}
+
 function LoadingDots() {
   return (
-    <div className="flex items-center gap-1.5 py-1">
+    <div className="flex items-center gap-1.5 py-1" aria-hidden="true">
       {[0, 1, 2].map((item) => (
         <span
           className="size-2 animate-bounce rounded-full bg-slate-400"
@@ -769,6 +904,22 @@ function chatMessageFromResponse(message: ChatMessageResponse): ChatMessage {
     model: message.llm_model ?? undefined,
     traceId: message.trace_id ?? undefined,
   };
+}
+
+function uniqueDocumentSources(
+  sources: RetrievedChunkResponse[],
+): RetrievedChunkResponse[] {
+  const seenDocuments = new Set<string>();
+
+  return sources.filter((source) => {
+    const key = source.document_id
+      ? `document:${source.document_id}`
+      : `file:${source.file_name ?? source.child_chunk_id}`;
+
+    if (seenDocuments.has(key)) return false;
+    seenDocuments.add(key);
+    return true;
+  });
 }
 
 function linkCitationMarkers(

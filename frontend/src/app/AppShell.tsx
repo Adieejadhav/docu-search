@@ -3,7 +3,7 @@ import { Database, RefreshCw, Server, Sparkles } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
 import { API_BASE_URL } from "../services/api";
-import { primaryNavigation, titleForPath } from "./navigation";
+import { adminNavigation, primaryNavigation, titleForPath } from "./navigation";
 
 export function AppShell({
   onRefresh,
@@ -18,10 +18,12 @@ export function AppShell({
   const { documents, health } = useAppData();
   const title = titleForPath(location.pathname);
   const isChatRoute = location.pathname.startsWith("/chat");
+  const chatNavigation = primaryNavigation.find((item) => item.section === "chat");
+  const ChatIcon = chatNavigation?.icon;
 
   if (isChatRoute) {
     return (
-      <main className="min-h-screen bg-[#f7f7f5] text-slate-900">
+      <main className="min-h-screen bg-slate-50 text-slate-900">
         {children}
       </main>
     );
@@ -35,22 +37,28 @@ export function AppShell({
             <Sparkles size={20} />
           </div>
           <div>
-            <p>Docu Search</p>
-            <strong>RAG Console</strong>
+            <strong>Docu Search</strong>
+            <p>Admin workspace</p>
           </div>
         </div>
 
         <nav className="section-tabs" aria-label="Application sections">
-          {primaryNavigation.map((item) => {
+          {chatNavigation && ChatIcon && (
+            <NavLink
+              className={({ isActive }) => (isActive ? "active" : "")}
+              to={chatNavigation.to}
+            >
+              <ChatIcon size={18} />
+              <span>{chatNavigation.label}</span>
+            </NavLink>
+          )}
+
+          <p className="nav-group-label">Administration</p>
+          {adminNavigation.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
-                className={({ isActive }) =>
-                  isActive ||
-                  (item.section === "admin" && location.pathname.startsWith("/admin"))
-                    ? "active"
-                    : ""
-                }
+                className={({ isActive }) => (isActive ? "active" : "")}
                 key={item.to}
                 to={item.to}
               >
