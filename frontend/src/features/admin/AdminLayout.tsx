@@ -1,7 +1,6 @@
 import { Bot, Database, HeartPulse, Sparkles } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAppData } from "../../app/AppDataContext";
-import { adminNavigation } from "../../app/navigation";
 import { MetricCard } from "../../components/MetricCard";
 import { asText, summarizeDocuments } from "../../lib/format";
 
@@ -39,17 +38,6 @@ export function AdminLayout() {
       </section>
 
       <section className="admin-shell">
-        <nav className="admin-tabs" aria-label="Admin sections">
-          {adminNavigation.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink className={({ isActive }) => (isActive ? "active" : "")} key={item.to} to={item.to}>
-                <Icon size={17} />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
         <Outlet />
       </section>
     </>
