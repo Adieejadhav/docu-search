@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import require_admin
-from app.api.routes import admin, chat, documents, evaluation, health, ingestion, search, traces
+from app.api.routes import admin, chat, documents, evaluation, health, ingestion, pipeline, search, traces
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -32,6 +32,12 @@ api_router.include_router(
     evaluation.router,
     prefix="/admin/evaluation",
     tags=["admin", "evaluation"],
+    dependencies=[Depends(require_admin)],
+)
+api_router.include_router(
+    pipeline.router,
+    prefix="/admin/pipeline",
+    tags=["admin", "pipeline"],
     dependencies=[Depends(require_admin)],
 )
 api_router.include_router(

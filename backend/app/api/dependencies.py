@@ -15,6 +15,7 @@ from app.core.exceptions import AuthenticationError, RetrievalError
 from app.embeddings import LocalSentenceTransformerEmbeddingProvider
 from app.indexing import PgVectorChunkIndex
 from app.ingestion.jobs import IngestionJobService
+from app.ingestion.pipeline_testing import PipelineNodeTester
 from app.llm import OllamaChatClient
 from app.rag import RagAnswerer
 
@@ -86,6 +87,13 @@ def get_ingestion_job_service() -> IngestionJobService:
 
     return IngestionJobService(
         orchestrator=IngestionOrchestrator(index=get_chunk_index()),
+    )
+
+
+def get_pipeline_node_tester() -> PipelineNodeTester:
+    return PipelineNodeTester(
+        embedding_provider=get_embedding_provider(),
+        index=get_chunk_index(),
     )
 
 

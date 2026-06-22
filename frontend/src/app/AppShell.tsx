@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Database, RefreshCw, Server, Sparkles } from "lucide-react";
+import { Database, RefreshCw, Sparkles } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
 import { API_BASE_URL } from "../services/api";
@@ -77,10 +77,6 @@ export function AppShell({
           <div>
             <Database size={15} />
             <span>{documents ? `${documents.total} documents` : "Loading index"}</span>
-          </div>
-          <div>
-            <Server size={15} />
-            <span>pgvector</span>
           </div>
         </section>
       </aside>

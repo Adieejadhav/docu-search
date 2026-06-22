@@ -21,6 +21,8 @@ import type {
   IngestionJob,
   IngestionJobCreateResponse,
   IngestionJobListResponse,
+  PipelineNodeStage,
+  PipelineNodeTestResponse,
   RagTraceDeleteResponse,
   RagTraceDetail,
   RagTraceListResponse,
@@ -201,6 +203,19 @@ export async function listIngestionJobs(): Promise<IngestionJobListResponse> {
 
 export async function getIngestionJob(jobId: string): Promise<IngestionJob> {
   return request<IngestionJob>(`/admin/ingestion/jobs/${encodeURIComponent(jobId)}`);
+}
+
+export async function testPipelineNode(
+  stage: PipelineNodeStage,
+  file: File,
+): Promise<PipelineNodeTestResponse> {
+  const formData = new FormData();
+  formData.set("stage", stage);
+  formData.set("file", file, file.name);
+  return request<PipelineNodeTestResponse>("/admin/pipeline/test", {
+    method: "POST",
+    body: formData,
+  });
 }
 
 export async function listEvaluationCases(): Promise<EvaluationCase[]> {

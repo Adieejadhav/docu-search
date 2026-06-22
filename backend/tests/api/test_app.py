@@ -11,6 +11,7 @@ from app.api.dependencies import (
     get_database_url,
     get_evaluation_history_store,
     get_ingestion_job_service,
+    get_pipeline_node_tester,
     get_rag_trace_store,
     get_rag_answerer,
 )
@@ -19,6 +20,7 @@ from app.db import DatabaseHealth
 from app.indexing import IndexedDocumentSummary, PgVectorIndexStats
 from app.ingestion.chunking import ChildChunk, ParentChunk
 from app.ingestion.jobs import IngestionJobList, IngestionJobRecord
+from app.ingestion.pipeline_testing import PipelineNodeTestResult
 from app.main import create_app
 from app.rag import RagAnswer
 from app.search.retrieval import RetrievedChunk, RetrievalResult
@@ -142,6 +144,24 @@ def test_ingestion_jobs_can_be_listed_and_read():
     assert get_response.json()["id"] == "job-1"
 
 
+def test_pipeline_node_can_be_tested_with_uploaded_file():
+    app = create_app()
+    fake_tester = _FakePipelineNodeTester()
+    app.dependency_overrides[get_pipeline_node_tester] = lambda: fake_tester
+    client = TestClient(app)
+
+    response = client.post(
+        "/admin/pipeline/test",
+        files={"file": ("policy.md", b"# Policy\n\nEvidence is required.", "text/markdown")},
+        data={"stage": "parse"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["stage"] == "parse"
+    assert response.json()["summary"]["block_count"] == 2
+    assert fake_tester.stages == ["parse"]
+
+
 def test_evaluation_cases_can_be_listed():
     client = TestClient(create_app())
 
@@ -212,6 +232,21 @@ class _FakeIndex:
 
     def clear(self):
         return None
+
+
+class _FakePipelineNodeTester:
+    def __init__(self) -> None:
+        self.stages: list[str] = []
+
+    def run(self, *, stage: str, file_path: Path) -> PipelineNodeTestResult:
+        self.stages.append(stage)
+        assert file_path.read_text(encoding="utf-8").startswith("# Policy")
+        return PipelineNodeTestResult(
+            stage="parse",
+            duration_ms=1.25,
+            summary={"file_name": file_path.name, "block_count": 2},
+            preview=[{"block_type": "heading", "text": "Policy"}],
+        )
 
 
 class _FakeAnswerer:

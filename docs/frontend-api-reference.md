@@ -1071,6 +1071,55 @@ Backend involved:
 - Service: `IngestionJobStore.get_job`
 - DB touched: `ingestion_jobs`
 
+### 19A. POST `/admin/pipeline/test`
+
+Purpose:
+
+Runs one bounded, non-destructive pipeline layer test against an uploaded document.
+Supported stages are `validate`, `parse`, `chunk`, `embed`, and `index`.
+
+Frontend caller:
+
+- `testPipelineNode(stage, file)`
+- Used by `AdminTestBenchPage` (Pipeline Lab).
+
+Auth:
+
+- Admin route.
+
+Request:
+
+```http
+POST /admin/pipeline/test
+Content-Type: multipart/form-data
+
+stage=parse
+file=<document>
+```
+
+Response:
+
+```json
+{
+  "stage": "parse",
+  "status": "completed",
+  "duration_ms": 12.4,
+  "summary": {
+    "parser": "MarkdownParser",
+    "block_count": 8,
+    "normalization": "completed"
+  },
+  "preview": []
+}
+```
+
+Backend involved:
+
+- Route: `backend/app/api/routes/pipeline.py::test_pipeline_node`
+- Service: `PipelineNodeTester`
+- Production layers reused: file validation, parser/normalizer, chunker, embedding provider, pgvector stats
+- DB mutation: none
+
 ### 20. GET `/admin/evaluation/cases`
 
 Purpose:
@@ -1515,6 +1564,7 @@ Admin overview:
   GET /documents
 
 Admin test bench:
+  POST /admin/pipeline/test
   POST /search
   POST /ask
 
