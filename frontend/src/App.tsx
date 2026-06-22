@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AlertBanner } from "./components/AlertBanner";
 import { AppDataProvider, useAppData } from "./app/AppDataContext";
@@ -8,10 +9,15 @@ import { AdminIngestionPage } from "./features/admin/pages/AdminIngestionPage";
 import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
 import { AdminOpsPage } from "./features/admin/pages/AdminOpsPage";
 import { AdminOverviewPage } from "./features/admin/pages/AdminOverviewPage";
-import { AdminTestBenchPage } from "./features/admin/pages/AdminTestBenchPage";
 import { AdminTracesPage } from "./features/admin/pages/AdminTracesPage";
 import { AdminWorkbenchProvider } from "./features/admin/AdminWorkbenchContext";
 import { ChatPanel } from "./features/chat/ChatPanel";
+
+const AdminTestBenchPage = lazy(() =>
+  import("./features/admin/pages/AdminTestBenchPage").then((module) => ({
+    default: module.AdminTestBenchPage,
+  })),
+);
 
 export default function App() {
   return (
@@ -47,7 +53,14 @@ function AppRoutes() {
         >
           <Route index element={<Navigate to="/admin/overview" replace />} />
           <Route path="overview" element={<AdminOverviewPage />} />
-          <Route path="test-bench" element={<AdminTestBenchPage />} />
+          <Route
+            path="test-bench"
+            element={
+              <Suspense fallback={<PipelineLabFallback />}>
+                <AdminTestBenchPage />
+              </Suspense>
+            }
+          />
           <Route path="evaluation" element={<AdminEvaluationPage />} />
           <Route path="traces" element={<AdminTracesPage />} />
           <Route path="index" element={<AdminIndexPage />} />
@@ -57,5 +70,13 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </AppShell>
+  );
+}
+
+function PipelineLabFallback() {
+  return (
+    <div className="grid min-h-80 place-items-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
+      Loading pipeline workspace...
+    </div>
   );
 }

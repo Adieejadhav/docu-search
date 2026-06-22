@@ -38,8 +38,8 @@ export const adminNavigation: NavigationItem[] = [
   },
   {
     to: "/admin/test-bench",
-    label: "Test Bench",
-    title: "RAG Test Bench",
+    label: "Pipeline Lab",
+    title: "Pipeline Lab",
     section: "admin",
     icon: Search,
   },

@@ -67,6 +67,14 @@ class SearchResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PipelineNodeTestResponse(BaseModel):
+    stage: Literal["validate", "parse", "chunk", "embed", "index"]
+    status: Literal["completed"]
+    duration_ms: float = Field(ge=0)
+    summary: dict[str, Any] = Field(default_factory=dict)
+    preview: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class AskRequest(SearchRequest):
     pass
 

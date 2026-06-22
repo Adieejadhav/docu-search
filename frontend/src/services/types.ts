@@ -91,6 +91,16 @@ export interface SearchResponse {
   metadata: Record<string, unknown>;
 }
 
+export type PipelineNodeStage = "validate" | "parse" | "chunk" | "embed" | "index";
+
+export interface PipelineNodeTestResponse {
+  stage: PipelineNodeStage;
+  status: "completed";
+  duration_ms: number;
+  summary: Record<string, unknown>;
+  preview: Array<Record<string, unknown>>;
+}
+
 export interface AskResponse {
   query: string;
   answer: string;

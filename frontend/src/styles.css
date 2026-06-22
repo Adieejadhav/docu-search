@@ -968,6 +968,82 @@ input:focus {
   gap: 16px;
 }
 
+.pipeline-flow .react-flow__node {
+  cursor: pointer;
+}
+
+.pipeline-flow .react-flow__node:focus-visible {
+  outline: 3px solid rgb(59 130 246 / 28%);
+  outline-offset: 6px;
+  border-radius: 999px;
+}
+
+.pipeline-flow .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.pipeline-flow .react-flow__controls-button {
+  width: 30px;
+  height: 30px;
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: #ffffff;
+}
+
+.pipeline-flow .react-flow__controls-button:hover {
+  background: #f1f5f9;
+}
+
+.pipeline-flow .react-flow__attribution {
+  color: #94a3b8;
+  background: rgb(255 255 255 / 76%);
+}
+
+.pipeline-range {
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  appearance: none;
+  background: #e2e8f0;
+  cursor: pointer;
+}
+
+.pipeline-range::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  appearance: none;
+  background: #334155;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 24%);
+}
+
+.pipeline-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #334155;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 24%);
+}
+
+.pipeline-range:focus-visible {
+  outline: 3px solid rgb(59 130 246 / 24%);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-flow .react-flow__node *,
+  .pipeline-flow .react-flow__edge-path {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .admin-tabs {
   display: flex;
   flex-wrap: wrap;

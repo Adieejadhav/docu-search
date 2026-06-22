@@ -150,14 +150,11 @@ export function ChatPanel({
     };
   }, [isResizingSidebar]);
 
-  async function refreshSessions(autoSelect = true) {
+  async function refreshSessions() {
     setLoadingSessions(true);
     try {
       const payload = await listChatSessions();
       setSessions(payload.sessions);
-      if (autoSelect && !activeSessionId && payload.sessions.length && !messages.length) {
-        await loadSession(payload.sessions[0].id);
-      }
     } catch (caught) {
       onError(messageFromError(caught));
     } finally {
@@ -277,7 +274,7 @@ export function ChatPanel({
           },
         },
       );
-      await refreshSessions(false);
+      await refreshSessions();
     } catch (caught) {
       setStreamPhase(null);
       onError(messageFromError(caught));
