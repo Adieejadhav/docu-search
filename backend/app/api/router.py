@@ -3,7 +3,17 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import require_admin
-from app.api.routes import admin, chat, documents, evaluation, health, ingestion, pipeline, search, traces
+from app.api.routes import (
+    admin,
+    chat,
+    documents,
+    evaluation,
+    health,
+    ingestion,
+    pipeline,
+    search,
+    traces,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
