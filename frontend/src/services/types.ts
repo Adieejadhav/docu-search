@@ -117,6 +117,30 @@ export interface AdminClearIndexResponse {
   child_chunk_count: number;
 }
 
+export interface AdminOverviewQueryCounts {
+  total: number;
+  today: number;
+  month: number;
+  year: number;
+}
+
+export interface AdminOverviewIngestionJobs {
+  total: number;
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+export interface AdminOverviewResponse {
+  document_count: number;
+  parent_chunk_count: number;
+  child_chunk_count: number;
+  vector_count: number;
+  queries: AdminOverviewQueryCounts;
+  ingestion_jobs: AdminOverviewIngestionJobs;
+}
+
 export type IngestionJobStatus = "queued" | "running" | "completed" | "failed";
 
 export interface IngestionJobEvent {

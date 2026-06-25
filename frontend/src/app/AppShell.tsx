@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Database, RefreshCw, Sparkles } from "lucide-react";
+import { Database, Moon, RefreshCw, Sparkles, Sun } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
+import { useTheme } from "./ThemeContext";
 import { API_BASE_URL } from "../services/api";
 import { adminNavigation, primaryNavigation, titleForPath } from "./navigation";
 
@@ -23,7 +24,8 @@ export function AppShell({
 
   if (isChatRoute) {
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-900">
+      <main className="chat-route-shell min-h-screen bg-slate-50 text-slate-900">
+        <ThemeToggle compact />
         {children}
       </main>
     );
@@ -89,6 +91,7 @@ export function AppShell({
           </div>
           <div className="topbar-actions">
             <code>{API_BASE_URL}</code>
+            <ThemeToggle />
             <button
               className="icon-button"
               type="button"
@@ -103,5 +106,24 @@ export function AppShell({
         <div className="page-content">{children}</div>
       </section>
     </main>
+  );
+}
+
+function ThemeToggle({ compact = false }: { compact?: boolean }) {
+  const { theme, toggleTheme } = useTheme();
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
+
+  return (
+    <button
+      aria-label={`Switch to ${nextTheme} mode`}
+      className={compact ? "theme-toggle chat-theme-toggle" : "theme-toggle"}
+      onClick={toggleTheme}
+      title={`Switch to ${nextTheme} mode`}
+      type="button"
+    >
+      <Icon size={17} />
+      {!compact && <span>{theme === "dark" ? "Light" : "Dark"}</span>}
+    </button>
   );
 }
