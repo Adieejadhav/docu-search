@@ -1,6 +1,9 @@
 from app.schemas.api import (
     AdminClearIndexRequest,
     AdminClearIndexResponse,
+    AdminOverviewIngestionJobs,
+    AdminOverviewQueryCounts,
+    AdminOverviewResponse,
     ApiErrorResponse,
     AskRequest,
     AskResponse,
@@ -39,6 +42,9 @@ from app.schemas.api import (
 __all__ = [
     "AdminClearIndexRequest",
     "AdminClearIndexResponse",
+    "AdminOverviewIngestionJobs",
+    "AdminOverviewQueryCounts",
+    "AdminOverviewResponse",
     "ApiErrorResponse",
     "AskRequest",
     "AskResponse",

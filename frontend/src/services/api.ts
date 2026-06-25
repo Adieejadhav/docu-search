@@ -1,5 +1,6 @@
 import type {
   AdminClearIndexResponse,
+  AdminOverviewResponse,
   ApiMetricsSnapshot,
   ApiErrorResponse,
   AskResponse,
@@ -38,8 +39,11 @@ export async function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/health");
 }
 
-export async function getDocuments(): Promise<DocumentListResponse> {
-  return request<DocumentListResponse>("/documents");
+export async function getDocuments(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<DocumentListResponse> {
+  return request<DocumentListResponse>(`/documents${queryString(options)}`);
 }
 
 export async function getDocumentChunks(
@@ -160,6 +164,10 @@ export async function clearIndex(): Promise<AdminClearIndexResponse> {
   });
 }
 
+export async function getAdminOverview(): Promise<AdminOverviewResponse> {
+  return request<AdminOverviewResponse>("/admin/overview");
+}
+
 export async function getApiMetrics(): Promise<ApiMetricsSnapshot> {
   return request<ApiMetricsSnapshot>("/admin/metrics");
 }
@@ -197,8 +205,13 @@ function displayUploadFileName(file: File): string {
   return file.webkitRelativePath || file.name || "upload";
 }
 
-export async function listIngestionJobs(): Promise<IngestionJobListResponse> {
-  return request<IngestionJobListResponse>("/admin/ingestion/jobs");
+export async function listIngestionJobs(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<IngestionJobListResponse> {
+  return request<IngestionJobListResponse>(
+    `/admin/ingestion/jobs${queryString(options)}`,
+  );
 }
 
 export async function getIngestionJob(jobId: string): Promise<IngestionJob> {
@@ -235,8 +248,11 @@ export async function listEvaluationRuns(): Promise<EvaluationRunHistoryResponse
   return request<EvaluationRunHistoryResponse>("/admin/evaluation/runs");
 }
 
-export async function listRagTraces(): Promise<RagTraceListResponse> {
-  return request<RagTraceListResponse>("/admin/traces");
+export async function listRagTraces(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<RagTraceListResponse> {
+  return request<RagTraceListResponse>(`/admin/traces${queryString(options)}`);
 }
 
 export async function getRagTrace(traceId: string): Promise<RagTraceDetail> {
@@ -373,4 +389,16 @@ function cleanSearchPayload(payload: SearchRequest | ChatAskRequest): SearchRequ
       ? { session_id: payload.session_id }
       : {}),
   };
+}
+
+function queryString(options?: Record<string, number | string | boolean | undefined>): string {
+  if (!options) return "";
+
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined) params.set(key, String(value));
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }

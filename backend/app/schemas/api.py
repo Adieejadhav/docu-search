@@ -154,6 +154,30 @@ class AdminClearIndexResponse(BaseModel):
     child_chunk_count: int
 
 
+class AdminOverviewQueryCounts(BaseModel):
+    total: int
+    today: int
+    month: int
+    year: int
+
+
+class AdminOverviewIngestionJobs(BaseModel):
+    total: int
+    queued: int
+    running: int
+    completed: int
+    failed: int
+
+
+class AdminOverviewResponse(BaseModel):
+    document_count: int
+    parent_chunk_count: int
+    child_chunk_count: int
+    vector_count: int
+    queries: AdminOverviewQueryCounts
+    ingestion_jobs: AdminOverviewIngestionJobs
+
+
 class IngestionJobEventResponse(BaseModel):
     stage: str
     status: str

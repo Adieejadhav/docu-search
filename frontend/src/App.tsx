@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { AlertBanner } from "./components/AlertBanner";
 import { AppDataProvider, useAppData } from "./app/AppDataContext";
 import { AppShell } from "./app/AppShell";
+import { ThemeProvider } from "./app/ThemeContext";
 import { AdminLayout } from "./features/admin/AdminLayout";
 import { AdminIndexPage } from "./features/admin/pages/AdminIndexPage";
 import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
@@ -21,9 +22,11 @@ const AdminTestBenchPage = lazy(() =>
 export default function App() {
   return (
     <BrowserRouter>
-      <AppDataProvider>
-        <AppRoutes />
-      </AppDataProvider>
+      <ThemeProvider>
+        <AppDataProvider>
+          <AppRoutes />
+        </AppDataProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
