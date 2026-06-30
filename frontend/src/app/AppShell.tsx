@@ -4,7 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
 import { useTheme } from "./ThemeContext";
 import { API_BASE_URL } from "../services/api";
-import { adminNavigation, primaryNavigation, titleForPath } from "./navigation";
+import { adminNavigation, navigationItemForPath, primaryNavigation, titleForPath } from "./navigation";
 
 export function AppShell({
   onRefresh,
@@ -17,10 +17,14 @@ export function AppShell({
 }) {
   const location = useLocation();
   const { documents, health } = useAppData();
-  const title = titleForPath(location.pathname);
+  const activeItem = navigationItemForPath(location.pathname);
+  const title = activeItem?.title ?? titleForPath(location.pathname);
+  const eyebrow = activeItem?.eyebrow ?? (location.pathname.startsWith("/admin") ? "Operations" : "Workspace");
+  const description = activeItem?.description;
   const isChatRoute = location.pathname.startsWith("/chat");
   const chatNavigation = primaryNavigation.find((item) => item.section === "chat");
   const ChatIcon = chatNavigation?.icon;
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   if (isChatRoute) {
     return (
@@ -32,7 +36,7 @@ export function AppShell({
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell admin-blueprint-shell">
       <aside className="app-sidebar">
         <div className="brand-lockup">
           <div className="brand-mark">
@@ -57,14 +61,14 @@ export function AppShell({
 
           <p className="nav-group-label">Administration</p>
           {adminNavigation.map((item) => {
-            const Icon = item.icon;
+            const itemIndex = adminNavigation.findIndex((entry) => entry.to === item.to) + 1;
             return (
               <NavLink
                 className={({ isActive }) => (isActive ? "active" : "")}
                 key={item.to}
                 to={item.to}
               >
-                <Icon size={18} />
+                <span className="nav-index">{String(itemIndex).padStart(2, "0")}</span>
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -85,22 +89,39 @@ export function AppShell({
 
       <section className="app-main">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">{location.pathname.startsWith("/admin") ? "Operations" : "Workspace"}</p>
+          <div className="topbar-copy">
+            <p className="eyebrow">{eyebrow}</p>
             <h1>{title}</h1>
+            {description && <p className="topbar-description">{description}</p>}
           </div>
-          <div className="topbar-actions">
-            <code>{API_BASE_URL}</code>
-            <ThemeToggle />
-            <button
-              className="icon-button"
-              type="button"
-              onClick={onRefresh}
-              disabled={refreshDisabled}
-              title="Refresh"
-            >
-              <RefreshCw size={18} />
-            </button>
+          <div className="topbar-right">
+            {isAdminRoute && (
+              <div className="admin-runtime-pills" aria-label="Runtime status">
+                <span className="admin-pill"><i />Local</span>
+                <span className={`admin-pill ${health?.status === "ok" ? "ok" : "warn"}`}><i />API {health?.status === "ok" ? "healthy" : "degraded"}</span>
+                <span className={`admin-pill ${documents?.total ? "ok" : "warn"}`}><i />Vector {documents?.total ? "ready" : "pending"}</span>
+                <span className={`admin-pill ${health?.llm.status === "ok" ? "ok" : "warn"}`}><i />LLM {health?.llm.status === "ok" ? "online" : "degraded"}</span>
+              </div>
+            )}
+            <div className="topbar-actions">
+              {!isAdminRoute && <code>{API_BASE_URL}</code>}
+              {isAdminRoute && (
+                <>
+                  <NavLink className="admin-action" to="/admin/playground">Playground</NavLink>
+                  <NavLink className="admin-action primary" to="/admin/evaluations">Run Eval</NavLink>
+                </>
+              )}
+              <ThemeToggle />
+              <button
+                className="icon-button"
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshDisabled}
+                title="Refresh"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </div>
           </div>
         </header>
         <div className="page-content">{children}</div>
