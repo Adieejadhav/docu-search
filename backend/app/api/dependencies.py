@@ -8,7 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 import os
 
-from fastapi import Header
+from fastapi import Depends, Header
 
 from app.core.env import load_environment
 from app.core.exceptions import AuthenticationError, RetrievalError
@@ -18,6 +18,7 @@ from app.ingestion.jobs import IngestionJobService
 from app.ingestion.pipeline_testing import PipelineNodeTester
 from app.llm import OllamaChatClient
 from app.rag import RagAnswerer
+from app.search.service import SearchService
 
 
 def get_database_url() -> str:
@@ -128,3 +129,31 @@ def get_llm_client() -> OllamaChatClient:
 @lru_cache(maxsize=1)
 def get_rag_answerer() -> RagAnswerer:
     return RagAnswerer(llm_client=get_llm_client())
+
+
+def get_search_service(
+    index: PgVectorChunkIndex = Depends(get_chunk_index),
+    answerer: RagAnswerer = Depends(get_rag_answerer),
+    trace_store=Depends(get_rag_trace_store),
+) -> SearchService:
+    return SearchService(
+        index=index,
+        answerer=answerer,
+        trace_store=trace_store,
+    )
+
+
+def get_chat_service(
+    store=Depends(get_chat_store),
+    index: PgVectorChunkIndex = Depends(get_chunk_index),
+    answerer: RagAnswerer = Depends(get_rag_answerer),
+    trace_store=Depends(get_rag_trace_store),
+):
+    from app.chat.service import ChatService
+
+    return ChatService(
+        store=store,
+        index=index,
+        answerer=answerer,
+        trace_store=trace_store,
+    )

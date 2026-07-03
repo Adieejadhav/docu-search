@@ -1,6 +1,6 @@
 """
-File: backend/app/api/errors.py
-Purpose: Maps application exceptions to consistent HTTP error responses.
+File: backend/app/api/exception_handlers.py
+Purpose: Converts application exceptions into HTTP JSON responses.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from app.core.exceptions import (
 from app.schemas import ApiErrorResponse
 
 
-def app_error_status_code(exc: AppError) -> int:
+def http_status_for_app_error(exc: AppError) -> int:
     if isinstance(exc, AuthenticationError):
         return status.HTTP_401_UNAUTHORIZED
     if isinstance(exc, RateLimitError):
@@ -49,6 +49,6 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
         details=exc.details,
     )
     return JSONResponse(
-        status_code=app_error_status_code(exc),
+        status_code=http_status_for_app_error(exc),
         content=payload.model_dump(mode="json"),
     )

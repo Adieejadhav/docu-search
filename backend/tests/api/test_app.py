@@ -7,6 +7,7 @@ import tempfile
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import (
+    get_chat_store,
     get_chunk_index,
     get_database_url,
     get_evaluation_history_store,
@@ -15,6 +16,7 @@ from app.api.dependencies import (
     get_rag_trace_store,
     get_rag_answerer,
 )
+from app.chat import ChatMessageRecord, ChatSessionRecord, ChatSessionWithMessages
 from app.core.constants import SupportedFileType
 from app.db import DatabaseHealth
 from app.indexing import IndexedDocumentSummary, PgVectorIndexStats
@@ -84,6 +86,29 @@ def test_ask_endpoint_returns_answer_and_retrieval():
     payload = response.json()
     assert "P-004" in payload["answer"]
     assert payload["retrieval"]["results"][0]["child_chunk_id"] == "child-1"
+
+
+def test_chat_ask_persists_messages_and_returns_answer():
+    app = create_app()
+    fake_chat_store = _FakeChatStore()
+    app.dependency_overrides[get_chunk_index] = lambda: _FakeIndex()
+    app.dependency_overrides[get_rag_answerer] = lambda: _FakeAnswerer()
+    app.dependency_overrides[get_rag_trace_store] = lambda: _FakeTraceStore()
+    app.dependency_overrides[get_chat_store] = lambda: fake_chat_store
+    client = TestClient(app)
+
+    response = client.post("/chat/ask", json={"query": "Which policy?", "top_k": 1})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session"]["id"] == "session-1"
+    assert payload["user_message"]["role"] == "user"
+    assert payload["assistant_message"]["role"] == "assistant"
+    assert payload["answer"]["trace_id"] == "trace-1"
+    assert [message.role for message in fake_chat_store.messages] == [
+        "user",
+        "assistant",
+    ]
 
 
 def test_documents_endpoint_lists_indexed_documents():
@@ -274,6 +299,79 @@ class _FakeTrace:
 class _FakeTraceStore:
     def record_trace(self, **_):
         return _FakeTrace()
+
+
+class _FakeChatStore:
+    def __init__(self) -> None:
+        self.now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.session = ChatSessionRecord(
+            id="session-1",
+            title="New chat",
+            message_count=0,
+            created_at=self.now,
+            updated_at=self.now,
+        )
+        self.messages: list[ChatMessageRecord] = []
+
+    def create_session(self, *, title: str | None = None) -> ChatSessionRecord:
+        self.session = ChatSessionRecord(
+            id="session-1",
+            title=title or "New chat",
+            message_count=0,
+            created_at=self.now,
+            updated_at=self.now,
+        )
+        return self.session
+
+    def ensure_session(
+        self,
+        *,
+        session_id: str | None,
+        title: str | None,
+    ) -> ChatSessionRecord:
+        if session_id:
+            return self.session
+        return self.create_session(title=title)
+
+    def add_message(
+        self,
+        *,
+        session_id: str,
+        role: str,
+        content: str,
+        trace_id: str | None = None,
+        llm_model: str | None = None,
+        latency_ms: float | None = None,
+        sources: list[dict] | None = None,
+    ) -> ChatMessageRecord:
+        message = ChatMessageRecord(
+            id=f"message-{len(self.messages) + 1}",
+            session_id=session_id,
+            role=role,
+            content=content,
+            trace_id=trace_id,
+            llm_model=llm_model,
+            latency_ms=latency_ms,
+            sources=sources or [],
+            created_at=self.now,
+        )
+        self.messages.append(message)
+        self.session = ChatSessionRecord(
+            id=self.session.id,
+            title=self.session.title,
+            message_count=len(self.messages),
+            created_at=self.session.created_at,
+            updated_at=self.now,
+        )
+        return message
+
+    def get_session(self, session_id: str):
+        if session_id != self.session.id:
+            return None
+        return ChatSessionWithMessages(
+            session=self.session,
+            messages=self.messages,
+        )
 
 
 class _FakeEvaluationHistoryStore:

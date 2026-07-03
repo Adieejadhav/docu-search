@@ -117,11 +117,29 @@ export interface AdminClearIndexResponse {
   child_chunk_count: number;
 }
 
+export interface AdminOverviewHealth {
+  status: ServiceStatus;
+  database_status: ServiceStatus;
+  embedding_model: string;
+  llm_model: string;
+  llm_host: string;
+}
+
+export interface AdminOverviewIndexStats {
+  document_count: number;
+  parent_chunk_count: number;
+  child_chunk_count: number;
+  vector_count: number;
+  readiness_percent: number;
+}
+
 export interface AdminOverviewQueryCounts {
   total: number;
   today: number;
   month: number;
   year: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
 }
 
 export interface AdminOverviewIngestionJobs {
@@ -130,15 +148,55 @@ export interface AdminOverviewIngestionJobs {
   running: number;
   completed: number;
   failed: number;
+  last_completed_at: string | null;
+}
+
+export interface AdminOverviewRisk {
+  status: "ok" | "attention";
+  warning_count: number;
+  reasons: string[];
+}
+
+export interface AdminOverviewQuality {
+  status: "not_measured";
+  score_percent: number | null;
+}
+
+export interface AdminOverviewRecentTrace {
+  id: string;
+  query: string;
+  status: "success";
+  result_count: number;
+  retrieval_ms: number;
+  answer_ms: number;
+  total_ms: number;
+  llm_model: string;
+  created_at: string;
+}
+
+export interface AdminOverviewRecentJob {
+  id: string;
+  status: IngestionJobStatus;
+  source_kind: string;
+  file_count: number;
+  parsed_document_count: number;
+  indexed_child_count: number;
+  failure_count: number;
+  duration_ms: number | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
 }
 
 export interface AdminOverviewResponse {
-  document_count: number;
-  parent_chunk_count: number;
-  child_chunk_count: number;
-  vector_count: number;
+  health: AdminOverviewHealth;
+  index: AdminOverviewIndexStats;
   queries: AdminOverviewQueryCounts;
   ingestion_jobs: AdminOverviewIngestionJobs;
+  risk: AdminOverviewRisk;
+  quality: AdminOverviewQuality;
+  recent_traces: AdminOverviewRecentTrace[];
+  recent_jobs: AdminOverviewRecentJob[];
 }
 
 export type IngestionJobStatus = "queued" | "running" | "completed" | "failed";

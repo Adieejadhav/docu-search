@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import api_router
-from app.api.errors import app_error_handler
+from app.api.exception_handlers import app_error_handler
 from app.api.middleware import InMemoryRateLimitMiddleware, RequestContextMiddleware
 from app.core.env import load_environment
 from app.core.exceptions import AppError
