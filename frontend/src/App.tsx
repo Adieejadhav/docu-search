@@ -5,8 +5,13 @@ import { AppDataProvider, useAppData } from "./app/AppDataContext";
 import { AppShell } from "./app/AppShell";
 import { ThemeProvider } from "./app/ThemeContext";
 import { AdminLayout } from "./features/admin/AdminLayout";
+import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
+import { AdminIndexPage } from "./features/admin/pages/AdminIndexPage";
 import { AdminOverviewPage } from "./features/admin/pages/AdminOverviewPage";
-import { AdminBlueprintPage } from "./features/admin/pages/AdminBlueprintPages";
+import { AdminPipelinePage } from "./features/admin/pages/AdminPipelinePage";
+import { AdminPlaygroundPage } from "./features/admin/pages/AdminPlaygroundPage";
+import { AdminTracesPage } from "./features/admin/pages/AdminTracesPage";
+import { AdminVectorIndexPage } from "./features/admin/pages/AdminVectorIndexPage";
 import { AdminWorkbenchProvider } from "./features/admin/AdminWorkbenchContext";
 import { ChatPanel } from "./features/chat/ChatPanel";
 
@@ -52,25 +57,14 @@ function AppRoutes() {
         >
           <Route index element={<Navigate to="/admin/overview" replace />} />
           <Route path="overview" element={<AdminOverviewPage />} />
-          <Route path="knowledge-bases" element={<AdminBlueprintPage page="knowledge-bases" />} />
-          <Route path="documents" element={<AdminBlueprintPage page="documents" />} />
-          <Route path="documents/detail" element={<AdminBlueprintPage page="document-detail" />} />
-          <Route path="documents/:documentId" element={<AdminBlueprintPage page="document-detail" />} />
-          <Route path="pipeline" element={<AdminBlueprintPage page="pipeline" />} />
-          <Route path="chunks" element={<AdminBlueprintPage page="chunks" />} />
-          <Route path="vector-indexes" element={<AdminBlueprintPage page="vector-indexes" />} />
-          <Route path="retrieval-profiles" element={<AdminBlueprintPage page="retrieval-profiles" />} />
-          <Route path="playground" element={<AdminBlueprintPage page="playground" />} />
-          <Route path="models-prompts" element={<AdminBlueprintPage page="models-prompts" />} />
-          <Route path="traces" element={<AdminBlueprintPage page="traces" />} />
-          <Route path="evaluations" element={<AdminBlueprintPage page="evaluations" />} />
-          <Route path="feedback" element={<AdminBlueprintPage page="feedback" />} />
-          <Route path="firewall" element={<AdminBlueprintPage page="firewall" />} />
-          <Route path="connectors" element={<AdminBlueprintPage page="connectors" />} />
-          <Route path="usage-cost" element={<AdminBlueprintPage page="usage-cost" />} />
-          <Route path="jobs-workers" element={<AdminBlueprintPage page="jobs-workers" />} />
-          <Route path="audit-access" element={<AdminBlueprintPage page="audit-access" />} />
-          <Route path="settings" element={<AdminBlueprintPage page="settings" />} />
+          <Route path="documents" element={<AdminIndexPage />} />
+          <Route path="documents/detail" element={<Navigate to="/admin/documents" replace />} />
+          <Route path="documents/:documentId" element={<Navigate to="/admin/documents" replace />} />
+          <Route path="pipeline" element={<AdminPipelinePage />} />
+          <Route path="vector-indexes" element={<AdminVectorIndexPage />} />
+          <Route path="playground" element={<AdminPlaygroundPage />} />
+          <Route path="traces" element={<AdminTracesPage />} />
+          <Route path="evaluations" element={<AdminEvaluationPage />} />
           <Route
             path="test-bench"
             element={
@@ -82,7 +76,9 @@ function AppRoutes() {
           <Route path="evaluation" element={<Navigate to="/admin/evaluations" replace />} />
           <Route path="index" element={<Navigate to="/admin/vector-indexes" replace />} />
           <Route path="ingestion" element={<Navigate to="/admin/pipeline" replace />} />
-          <Route path="ops" element={<Navigate to="/admin/jobs-workers" replace />} />
+          <Route path="ops" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="jobs-workers" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="*" element={<Navigate to="/admin/overview" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
