@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
-import { Database, FileText, Layers3, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { useAppData } from "../../../app/AppDataContext";
-import { MetricCard } from "../../../components/MetricCard";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { Panel } from "../../../components/ui/Panel";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime, messageFromError } from "../../../lib/format";
 import { clearIndex, getAdminOverview } from "../../../services/api";
 import type { AdminOverviewResponse } from "../../../services/types";
+import {
+  BlueprintLayout,
+  BlueprintMetric,
+  BlueprintMetricGrid,
+  BlueprintPage,
+  BlueprintPanel,
+} from "../AdminBlueprintPrimitives";
 import { StatusRow } from "../AdminPrimitives";
 
 const CONFIRM_TEXT = "CLEAR INDEX";
@@ -64,35 +69,37 @@ export function AdminVectorIndexPage() {
   const ready = !!index?.child_chunk_count && index.readiness_percent >= 100;
 
   return (
-    <section className="admin-grid">
-      <MetricCard
-        detail="indexed records"
-        icon={<FileText size={20} />}
-        label="Documents"
-        tone={index?.document_count ? "ok" : "degraded"}
-        value={formatMetric(index?.document_count)}
-      />
-      <MetricCard
-        detail="retrieval groups"
-        icon={<Layers3 size={20} />}
-        label="Parent Chunks"
-        value={formatMetric(index?.parent_chunk_count)}
-      />
-      <MetricCard
-        detail="searchable chunks"
-        icon={<Layers3 size={20} />}
-        label="Child Chunks"
-        value={formatMetric(index?.child_chunk_count)}
-      />
-      <MetricCard
-        detail={`${formatPercent(index?.readiness_percent)} ready`}
-        icon={<Database size={20} />}
-        label="Vectors"
-        tone={ready ? "ok" : "degraded"}
-        value={formatMetric(index?.vector_count)}
-      />
+    <BlueprintPage>
+      <BlueprintMetricGrid>
+        <BlueprintMetric
+          detail="indexed records"
+          label="Documents"
+          tone={index?.document_count ? "ok" : "warn"}
+          value={formatMetric(index?.document_count)}
+        />
+        <BlueprintMetric
+          detail="retrieval groups"
+          label="Parent Chunks"
+          value={formatMetric(index?.parent_chunk_count)}
+        />
+        <BlueprintMetric
+          detail="searchable chunks"
+          label="Child Chunks"
+          value={formatMetric(index?.child_chunk_count)}
+        />
+        <BlueprintMetric
+          detail={`${formatPercent(index?.readiness_percent)} ready`}
+          label="Vectors"
+          tone={ready ? "ok" : "warn"}
+          value={formatMetric(index?.vector_count)}
+        />
+      </BlueprintMetricGrid>
 
-      <Panel className="wide-panel" eyebrow="Vector Store" icon={<Database size={20} />} title="Index Readiness">
+      <BlueprintLayout>
+        <BlueprintPanel
+          description="Live counts from the backend document, chunk, and pgvector index tables"
+          title="Index Readiness"
+        >
         <div className="panel-toolbar">
           <Button
             disabled={isLoading}
@@ -117,9 +124,12 @@ export function AdminVectorIndexPage() {
             <StatusRow label="LLM host" value={overview?.health.llm_host ?? "-"} />
           </div>
         )}
-      </Panel>
+        </BlueprintPanel>
 
-      <Panel eyebrow="Ingestion" title="Index Build State">
+        <BlueprintPanel
+          description="Latest job totals from the ingestion job store"
+          title="Index Build State"
+        >
         <div className="status-list">
           <StatusRow label="Jobs" value={formatMetric(jobs?.total)} />
           <StatusRow label="Queued" value={formatMetric(jobs?.queued)} />
@@ -128,9 +138,13 @@ export function AdminVectorIndexPage() {
           <StatusRow label="Failed" value={formatMetric(jobs?.failed)} />
           <StatusRow label="Last completed" value={formatDateTime(jobs?.last_completed_at)} />
         </div>
-      </Panel>
+        </BlueprintPanel>
 
-      <Panel className="danger-panel" eyebrow="Admin" icon={<ShieldAlert size={20} />} title="Clear Index">
+        <BlueprintPanel
+          className="danger-panel"
+          description="Maintenance action for rebuilding local retrieval data"
+          title="Clear Index"
+        >
         <p className="danger-copy">
           Clears indexed documents, parent chunks, child chunks, and embedding vectors from the backend index.
           Source files and exported artifacts are not deleted.
@@ -143,7 +157,8 @@ export function AdminVectorIndexPage() {
         >
           {isClearing ? "Clearing" : "Clear Index"}
         </Button>
-      </Panel>
+        </BlueprintPanel>
+      </BlueprintLayout>
 
       <ConfirmDialog
         confirmDisabled={confirmation !== CONFIRM_TEXT || isClearing}
@@ -169,7 +184,7 @@ export function AdminVectorIndexPage() {
           />
         </label>
       </ConfirmDialog>
-    </section>
+    </BlueprintPage>
   );
 }
 

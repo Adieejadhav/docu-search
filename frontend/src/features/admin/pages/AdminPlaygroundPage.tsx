@@ -3,9 +3,9 @@ import { MarkdownAnswer } from "../../../components/MarkdownAnswer";
 import { ResultItem } from "../../../components/ResultItem";
 import { Button } from "../../../components/ui/Button";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Panel } from "../../../components/ui/Panel";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useAdminWorkbench } from "../AdminWorkbenchContext";
+import { BlueprintPage, BlueprintPanel } from "../AdminBlueprintPrimitives";
 import { PerfMetric, StatusRow } from "../AdminPrimitives";
 
 export function AdminPlaygroundPage() {
@@ -31,8 +31,12 @@ export function AdminPlaygroundPage() {
   const results = searchResult?.results ?? [];
 
   return (
-    <section className="playground">
-      <Panel eyebrow="Query Controls" icon={<SlidersHorizontal size={20} />} title="Search & Answer">
+    <BlueprintPage>
+      <section className="playground">
+        <BlueprintPanel
+          description="Run live retrieval and answer generation against the current index"
+          title="Search & Answer"
+        >
         <div className="query-form">
           <label>
             <span>Query</span>
@@ -87,10 +91,10 @@ export function AdminPlaygroundPage() {
             </Button>
           </div>
         </div>
-      </Panel>
+        </BlueprintPanel>
 
       <div className="admin-grid">
-        <Panel eyebrow="Runtime" title="Latest Request">
+        <BlueprintPanel description="Browser-observed timings and backend metadata" title="Latest Request">
           <div className="perf-grid">
             <PerfMetric label="Search" value={timings.search} />
             <PerfMetric label="Answer" value={timings.ask} />
@@ -100,17 +104,21 @@ export function AdminPlaygroundPage() {
             <StatusRow label="Embedding model" value={searchResult?.embedding_model ?? "-"} />
             <StatusRow label="Trace id" value={askResult?.trace_id ?? "-"} />
           </div>
-        </Panel>
+        </BlueprintPanel>
 
-        <Panel eyebrow="Answer" icon={<Bot size={20} />} title={askResult ? askResult.llm_model : "No answer yet"}>
+        <BlueprintPanel title={askResult ? askResult.llm_model : "No Answer Yet"}>
           {isAsking && <Skeleton count={4} />}
           {!isAsking && askResult && <MarkdownAnswer text={askResult.answer} />}
           {!isAsking && !askResult && (
             <EmptyState icon={<Bot size={22} />}>Ask a query to generate an answer with citations.</EmptyState>
           )}
-        </Panel>
+        </BlueprintPanel>
 
-        <Panel className="wide-panel" eyebrow="Retrieval" icon={<Search size={20} />} title={searchResult ? `${results.length} Result(s)` : "No search yet"}>
+        <BlueprintPanel
+          className="wide-panel"
+          description="Ranked chunks returned by the retrieval pipeline"
+          title={searchResult ? `${results.length} Result(s)` : "No Search Yet"}
+        >
           {(isSearching || isAsking) && <Skeleton count={5} />}
           {!isSearching && !isAsking && results.length > 0 && (
             <div className="results-list">
@@ -122,8 +130,9 @@ export function AdminPlaygroundPage() {
           {!isSearching && !isAsking && results.length === 0 && (
             <EmptyState icon={<Search size={22} />}>Run search or ask to inspect retrieved chunks.</EmptyState>
           )}
-        </Panel>
+        </BlueprintPanel>
       </div>
     </section>
+    </BlueprintPage>
   );
 }

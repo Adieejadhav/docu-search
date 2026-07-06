@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, RefreshCw, UploadCloud } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Panel } from "../../../components/ui/Panel";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime, messageFromError } from "../../../lib/format";
 import { getIngestionJob, listIngestionJobs } from "../../../services/api";
@@ -11,6 +10,15 @@ import type {
   IngestionJobEvent,
   IngestionJobStatus,
 } from "../../../services/types";
+import {
+  BlueprintBadge,
+  BlueprintLayout,
+  BlueprintMetric,
+  BlueprintMetricGrid,
+  BlueprintPage,
+  BlueprintPanel,
+  type BlueprintTone,
+} from "../AdminBlueprintPrimitives";
 
 export function AdminPipelinePage() {
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
@@ -68,19 +76,20 @@ export function AdminPipelinePage() {
   }
 
   return (
-    <section className="admin-grid">
-      <Panel className="wide-panel" eyebrow="Pipeline State" icon={<UploadCloud size={20} />} title="Recent Ingestion Work">
-        <div className="job-summary-grid">
-          <JobStat label="Jobs" value={formatNumber(jobs.length)} />
-          <JobStat label="Files" value={formatNumber(totals.files)} />
-          <JobStat label="Parsed docs" value={formatNumber(totals.parsed)} />
-          <JobStat label="Indexed chunks" value={formatNumber(totals.indexed)} />
-          <JobStat label="Failures" value={formatNumber(totals.failures)} />
-          <JobStat label="Latest" value={jobs[0] ? formatDateTime(jobs[0].updated_at) : "-"} />
-        </div>
-      </Panel>
+    <BlueprintPage>
+      <BlueprintMetricGrid columns={5}>
+        <BlueprintMetric label="Jobs" value={formatNumber(jobs.length)} detail="recent imports" />
+        <BlueprintMetric label="Files" value={formatNumber(totals.files)} detail="uploaded inputs" tone="ok" />
+        <BlueprintMetric label="Parsed docs" value={formatNumber(totals.parsed)} detail="documents extracted" />
+        <BlueprintMetric label="Indexed chunks" value={formatNumber(totals.indexed)} detail="vectors queued" tone="ok" />
+        <BlueprintMetric label="Failures" value={formatNumber(totals.failures)} detail="job-level failures" tone={totals.failures ? "danger" : "ok"} />
+      </BlueprintMetricGrid>
 
-      <Panel eyebrow="Jobs" icon={<Activity size={20} />} title="Ingestion Jobs">
+      <BlueprintLayout>
+        <BlueprintPanel
+          description={jobs[0] ? `Latest update ${formatDateTime(jobs[0].updated_at)}` : "No ingestion activity yet"}
+          title="Ingestion Jobs"
+        >
         <div className="panel-toolbar">
           <Button
             disabled={isLoading}
@@ -115,16 +124,20 @@ export function AdminPipelinePage() {
         ) : (
           <EmptyState icon={<UploadCloud size={22} />}>No ingestion jobs have run yet.</EmptyState>
         )}
-      </Panel>
+        </BlueprintPanel>
 
-      <Panel eyebrow="Job Detail" title={selectedJob ? shortId(selectedJob.id) : "No job selected"}>
+        <BlueprintPanel
+          description="Stage timings, indexed counts, and the latest job events"
+          title={selectedJob ? `Job ${shortId(selectedJob.id)}` : "No Job Selected"}
+        >
         {isLoadingDetail && <Skeleton count={5} />}
         {!isLoadingDetail && selectedJob && <JobDetail job={selectedJob} />}
         {!isLoadingDetail && !selectedJob && (
           <EmptyState icon={<Activity size={22} />}>Select a job to inspect stage timings and events.</EmptyState>
         )}
-      </Panel>
-    </section>
+        </BlueprintPanel>
+      </BlueprintLayout>
+    </BlueprintPage>
   );
 }
 
@@ -207,7 +220,14 @@ function JobStat({ label, value }: { label: string; value: string }) {
 }
 
 function StatusPill({ status }: { status: IngestionJobStatus }) {
-  return <span className={`status-pill ${status}`}>{titleCase(status)}</span>;
+  return <BlueprintBadge tone={statusTone(status)}>{titleCase(status)}</BlueprintBadge>;
+}
+
+function statusTone(status: IngestionJobStatus): BlueprintTone {
+  if (status === "completed") return "ok";
+  if (status === "failed") return "danger";
+  if (status === "running") return "info";
+  return "warn";
 }
 
 function totalDurationMs(job: IngestionJob): number | null {

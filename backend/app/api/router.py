@@ -16,10 +16,29 @@ from app.api.routes import (
 )
 
 api_router = APIRouter()
-api_router.include_router(health.router, tags=["health"])
-api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
-api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
-api_router.include_router(search.router, tags=["search"])
+
+api_router.include_router(
+    health.router, 
+    tags=["health"]
+)
+
+api_router.include_router(
+    documents.router, 
+    prefix="/documents", 
+    tags=["documents"]
+)
+
+api_router.include_router(
+    chat.router, 
+    prefix="/chat", 
+    tags=["chat"]
+)
+
+api_router.include_router(
+    search.router, 
+    tags=["search"]
+)
+
 api_router.include_router(
     admin.router,
     prefix="/admin",
