@@ -5,6 +5,7 @@ import { AppDataProvider, useAppData } from "./app/AppDataContext";
 import { AppShell } from "./app/AppShell";
 import { ThemeProvider } from "./app/ThemeContext";
 import { AdminLayout } from "./features/admin/AdminLayout";
+import { AdminDocumentDetailPage } from "./features/admin/pages/AdminDocumentDetailPage";
 import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
 import { AdminIndexPage } from "./features/admin/pages/AdminIndexPage";
 import { AdminOverviewPage } from "./features/admin/pages/AdminOverviewPage";
@@ -34,15 +35,12 @@ export default function App() {
 }
 
 function AppRoutes() {
-  const { error, isRefreshing, refreshOverview, setError } = useAppData();
+  const { error, setError } = useAppData();
   const location = useLocation();
   const isChatRoute = location.pathname.startsWith("/chat");
 
   return (
-    <AppShell
-      onRefresh={() => void refreshOverview()}
-      refreshDisabled={isRefreshing}
-    >
+    <AppShell>
       {error && !isChatRoute && <AlertBanner message={error} />}
       <Routes>
         <Route path="/" element={<Navigate to="/chat" replace />} />
@@ -59,7 +57,7 @@ function AppRoutes() {
           <Route path="overview" element={<AdminOverviewPage />} />
           <Route path="documents" element={<AdminIndexPage />} />
           <Route path="documents/detail" element={<Navigate to="/admin/documents" replace />} />
-          <Route path="documents/:documentId" element={<Navigate to="/admin/documents" replace />} />
+          <Route path="documents/:documentId" element={<AdminDocumentDetailPage />} />
           <Route path="pipeline" element={<AdminPipelinePage />} />
           <Route path="vector-indexes" element={<AdminVectorIndexPage />} />
           <Route path="playground" element={<AdminPlaygroundPage />} />

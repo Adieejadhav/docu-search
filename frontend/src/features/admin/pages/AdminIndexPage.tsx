@@ -1,134 +1,148 @@
-import { FileText, Layers3 } from "lucide-react";
-import { useState } from "react";
+import { FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAppData } from "../../../app/AppDataContext";
-import { DocumentList } from "../../../components/DocumentList";
-import { Button } from "../../../components/ui/Button";
-import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Panel } from "../../../components/ui/Panel";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { messageFromError } from "../../../lib/format";
-import { deleteDocument, getDocumentChunks, reindexDocument } from "../../../services/api";
-import type { DocumentChunkListResponse, DocumentSummary } from "../../../services/types";
+import { formatDateTime } from "../../../lib/format";
+import type { DocumentSummary } from "../../../services/types";
+import { BlueprintPage } from "../AdminBlueprintPrimitives";
 
 export function AdminIndexPage() {
-  const { documents, isRefreshing, refreshOverview, setError } = useAppData();
-  const [selectedDocument, setSelectedDocument] = useState<DocumentSummary | null>(null);
-  const [documentToDelete, setDocumentToDelete] = useState<DocumentSummary | null>(null);
-  const [chunkDetail, setChunkDetail] = useState<DocumentChunkListResponse | null>(null);
-  const [isLoadingChunks, setLoadingChunks] = useState(false);
-  const [isDeleting, setDeleting] = useState(false);
-  const [isReindexing, setReindexing] = useState(false);
+  const { documents, isRefreshing } = useAppData();
+  const navigate = useNavigate();
   const rows = documents?.documents ?? [];
-
-  async function inspectDocument(document: DocumentSummary) {
-    setSelectedDocument(document);
-    setChunkDetail(null);
-    setLoadingChunks(true);
-    setError(null);
-    try {
-      setChunkDetail(await getDocumentChunks(document.id));
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setLoadingChunks(false);
-    }
-  }
-
-  async function confirmDelete() {
-    if (!documentToDelete) return;
-
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteDocument(documentToDelete.id);
-      if (selectedDocument?.id === documentToDelete.id) {
-        setSelectedDocument(null);
-        setChunkDetail(null);
-      }
-      setDocumentToDelete(null);
-      await refreshOverview();
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  async function startReindex(document: DocumentSummary) {
-    setReindexing(true);
-    setError(null);
-    try {
-      await reindexDocument(document.id);
-      await refreshOverview();
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setReindexing(false);
-    }
-  }
+  const parentChunkTotal = rows.reduce(
+    (total, document) => total + document.parent_chunk_count,
+    0,
+  );
+  const childChunkTotal = rows.reduce(
+    (total, document) => total + document.child_chunk_count,
+    0,
+  );
 
   return (
-    <section className="index-management-layout">
-      <Panel eyebrow="Index Inventory" title="Documents">
-        {isRefreshing && !documents ? (
-          <EmptyState icon={<FileText size={22} />}>Loading indexed documents.</EmptyState>
-        ) : (
-          <DocumentList
-            documents={rows}
-            onDelete={setDocumentToDelete}
-            onInspect={(document) => void inspectDocument(document)}
-            onReindex={(document) => void startReindex(document)}
-          />
-        )}
-        {isReindexing && <p className="panel-caption">Re-index job queued.</p>}
-      </Panel>
+    <BlueprintPage>
+      <section className="document-summary-strip" aria-label="Document index summary">
+        <SummaryCard
+          detail="indexed records"
+          label="Total Documents"
+          value={formatMetric(documents?.total)}
+        />
+        <SummaryCard
+          detail="retrieval groups"
+          label="Parent Chunks"
+          value={formatMetric(parentChunkTotal)}
+        />
+        <SummaryCard
+          detail="search records"
+          label="Child Chunks"
+          value={formatMetric(childChunkTotal)}
+        />
+      </section>
 
-      <Panel
-        eyebrow="Document Detail"
-        icon={<Layers3 size={20} />}
-        title={selectedDocument?.file_name ?? "Select a document"}
-      >
-        {isLoadingChunks && <Skeleton count={4} />}
-        {!isLoadingChunks && !selectedDocument && (
-          <EmptyState icon={<Layers3 size={22} />}>
-            Inspect a document to review stored parent-child chunks.
-          </EmptyState>
-        )}
-        {!isLoadingChunks && selectedDocument && chunkDetail && (
-          <div className="chunk-inspector">
-            <div className="chunk-inspector-summary">
-              <span>{chunkDetail.total} child chunks</span>
-              <span>{chunkDetail.document.parent_chunk_count} parent chunks</span>
-              <span>{chunkDetail.document.file_type}</span>
-            </div>
-            {chunkDetail.chunks.slice(0, 8).map((chunk) => (
-              <article className="chunk-row" key={chunk.child_chunk_id}>
-                <header>
-                  <strong>Child #{chunk.child_index}</strong>
-                  <small>{chunk.source_refs.join(", ") || "no source ref"}</small>
-                </header>
-                <p>{chunk.child_text}</p>
-                <small>{chunk.parent_path.join(" > ") || "root"}</small>
-              </article>
-            ))}
+      <section className="ops-panel ops-panel-full">
+        <header>
+          <div>
+            <h2>Indexed Documents</h2>
+            <p>Documents currently stored in the RAG index</p>
           </div>
-        )}
-      </Panel>
-
-      <ConfirmDialog
-        confirmDisabled={isDeleting}
-        confirmLabel={isDeleting ? "Deleting" : "Delete Document"}
-        isOpen={!!documentToDelete}
-        onCancel={() => setDocumentToDelete(null)}
-        onConfirm={() => void confirmDelete()}
-        title="Delete indexed document?"
-      >
-        <p>
-          This removes the document, parent chunks, child chunks, and embeddings for{" "}
-          <strong>{documentToDelete?.file_name}</strong>. Source files are not deleted.
-        </p>
-      </ConfirmDialog>
-    </section>
+        </header>
+        <div className="ops-panel-body">
+          {isRefreshing && !documents ? (
+            <EmptyState icon={<FileText size={22} />}>Loading indexed documents.</EmptyState>
+          ) : (
+            <div className="ops-table-wrap">
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Type</th>
+                    <th>Parent chunks</th>
+                    <th>Child chunks</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length ? (
+                    rows.map((document) => (
+                      <DocumentRow
+                        document={document}
+                        key={document.id}
+                        onView={() => navigate(`/admin/documents/${document.id}`)}
+                      />
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7}>No indexed documents.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    </BlueprintPage>
   );
+}
+
+function SummaryCard({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="document-summary-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function DocumentRow({
+  document,
+  onView,
+}: {
+  document: DocumentSummary;
+  onView: () => void;
+}) {
+  return (
+    <tr>
+      <td>
+        <strong>{document.file_name}</strong>
+        <br />
+        <small>{document.title || document.id}</small>
+      </td>
+      <td>
+        <span className="document-table-pill type">{document.file_type}</span>
+      </td>
+      <td>
+        <span className="document-table-pill parent">
+          {formatMetric(document.parent_chunk_count)}
+        </span>
+      </td>
+      <td>
+        <span className="document-table-pill child">
+          {formatMetric(document.child_chunk_count)}
+        </span>
+      </td>
+      <td>{formatDateTime(document.created_at)}</td>
+      <td>{formatDateTime(document.updated_at)}</td>
+      <td>
+        <button onClick={onView} type="button">
+          View
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function formatMetric(value: number | null | undefined): string {
+  return typeof value === "number" ? new Intl.NumberFormat().format(value) : "-";
 }

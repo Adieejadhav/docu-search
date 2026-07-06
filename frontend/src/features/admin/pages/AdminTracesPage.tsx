@@ -5,11 +5,16 @@ import { ResultItem } from "../../../components/ResultItem";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Panel } from "../../../components/ui/Panel";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime, messageFromError } from "../../../lib/format";
 import { clearRagTraces, getRagTrace, listRagTraces } from "../../../services/api";
 import type { RagTraceDetail, RagTraceSummary } from "../../../services/types";
+import {
+  BlueprintMetric,
+  BlueprintMetricGrid,
+  BlueprintPage,
+  BlueprintPanel,
+} from "../AdminBlueprintPrimitives";
 
 export function AdminTracesPage() {
   const [traces, setTraces] = useState<RagTraceSummary[]>([]);
@@ -65,73 +70,82 @@ export function AdminTracesPage() {
   }
 
   return (
-    <section className="trace-layout">
-      <Panel eyebrow="RAG Observability" icon={<Activity size={20} />} title="Trace History">
-        <div className="panel-toolbar">
-          <Button icon={<RefreshCw size={16} />} onClick={() => void refreshTraces()}>
-            Refresh
-          </Button>
-          <Button
-            disabled={!traces.length}
-            icon={<Trash2 size={16} />}
-            onClick={() => setClearOpen(true)}
-            variant="danger"
-          >
-            Clear
-          </Button>
-        </div>
-        {error && <div className="selection-error">{error}</div>}
-        {isLoading ? (
-          <Skeleton count={5} />
-        ) : traces.length ? (
-          <div className="trace-list">
-            {traces.map((trace) => (
-              <button
-                className={
-                  trace.id === selectedTrace?.id ? "trace-row active" : "trace-row"
-                }
-                key={trace.id}
-                onClick={() => void selectTrace(trace.id)}
-                type="button"
-              >
-                <strong>{trace.query}</strong>
-                <span>
-                  {formatDateTime(trace.created_at)} · {trace.total_ms.toFixed(0)}ms ·{" "}
-                  {trace.result_count} sources
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <EmptyState>No RAG traces recorded yet.</EmptyState>
-        )}
-      </Panel>
+    <BlueprintPage>
+      <BlueprintMetricGrid>
+        <BlueprintMetric label="Traces" value={formatMetric(traces.length)} detail="loaded history" />
+        <BlueprintMetric label="Selected Results" value={formatMetric(selectedTrace?.result_count)} detail="retrieved chunks" />
+        <BlueprintMetric label="Retrieval" value={formatDuration(selectedTrace?.retrieval_ms)} detail="selected trace" />
+        <BlueprintMetric label="Answer" value={formatDuration(selectedTrace?.answer_ms)} detail="selected trace" />
+      </BlueprintMetricGrid>
 
-      <Panel
-        eyebrow="Trace Detail"
-        title={selectedTrace ? selectedTrace.llm_model : "No trace selected"}
-      >
-        {isLoadingDetail && <Skeleton count={4} />}
-        {!isLoadingDetail && selectedTrace && (
-          <div className="trace-detail">
-            <div className="trace-metrics">
-              <span>retrieval {selectedTrace.retrieval_ms.toFixed(1)}ms</span>
-              <span>answer {selectedTrace.answer_ms.toFixed(1)}ms</span>
-              <span>{selectedTrace.embedding_model}</span>
-            </div>
-            <h3>{selectedTrace.query}</h3>
-            <MarkdownAnswer text={selectedTrace.answer} />
-            <div className="results-list">
-              {selectedTrace.retrieval.results.map((result) => (
-                <ResultItem key={result.child_chunk_id} result={result} />
+      <section className="trace-layout">
+        <BlueprintPanel
+          description="Stored RAG traces from chat, playground, and test bench requests"
+          title="Trace History"
+        >
+          <div className="panel-toolbar">
+            <Button icon={<RefreshCw size={16} />} onClick={() => void refreshTraces()}>
+              Refresh
+            </Button>
+            <Button
+              disabled={!traces.length}
+              icon={<Trash2 size={16} />}
+              onClick={() => setClearOpen(true)}
+              variant="danger"
+            >
+              Clear
+            </Button>
+          </div>
+          {error && <div className="selection-error">{error}</div>}
+          {isLoading ? (
+            <Skeleton count={5} />
+          ) : traces.length ? (
+            <div className="trace-list">
+              {traces.map((trace) => (
+                <button
+                  className={trace.id === selectedTrace?.id ? "trace-row active" : "trace-row"}
+                  key={trace.id}
+                  onClick={() => void selectTrace(trace.id)}
+                  type="button"
+                >
+                  <strong>{trace.query}</strong>
+                  <span>
+                    {formatDateTime(trace.created_at)} | {trace.total_ms.toFixed(0)}ms | {trace.result_count} sources
+                  </span>
+                </button>
               ))}
             </div>
-          </div>
-        )}
-        {!isLoadingDetail && !selectedTrace && (
-          <EmptyState icon={<Activity size={22} />}>Run chat or test bench to create traces.</EmptyState>
-        )}
-      </Panel>
+          ) : (
+            <EmptyState>No RAG traces recorded yet.</EmptyState>
+          )}
+        </BlueprintPanel>
+
+        <BlueprintPanel
+          description="Answer, latency, citations, and retrieved chunks for the selected trace"
+          title={selectedTrace ? selectedTrace.llm_model : "No Trace Selected"}
+        >
+          {isLoadingDetail && <Skeleton count={4} />}
+          {!isLoadingDetail && selectedTrace && (
+            <div className="trace-detail">
+              <div className="trace-metrics">
+                <span>retrieval {selectedTrace.retrieval_ms.toFixed(1)}ms</span>
+                <span>answer {selectedTrace.answer_ms.toFixed(1)}ms</span>
+                <span>{selectedTrace.embedding_model}</span>
+              </div>
+              <h3>{selectedTrace.query}</h3>
+              <MarkdownAnswer text={selectedTrace.answer} />
+              <div className="results-list">
+                {selectedTrace.retrieval.results.map((result) => (
+                  <ResultItem key={result.child_chunk_id} result={result} />
+                ))}
+              </div>
+            </div>
+          )}
+          {!isLoadingDetail && !selectedTrace && (
+            <EmptyState icon={<Activity size={22} />}>Run chat or test bench to create traces.</EmptyState>
+          )}
+        </BlueprintPanel>
+      </section>
 
       <ConfirmDialog
         confirmLabel="Clear Traces"
@@ -142,6 +156,19 @@ export function AdminTracesPage() {
       >
         <p>This removes stored trace history only. Documents, chunks, and embeddings remain.</p>
       </ConfirmDialog>
-    </section>
+    </BlueprintPage>
   );
+}
+
+function formatMetric(value: number | null | undefined): string {
+  return typeof value === "number" ? new Intl.NumberFormat().format(value) : "-";
+}
+
+function formatDuration(value: number | null | undefined): string {
+  if (typeof value !== "number") return "-";
+  if (value >= 1000) {
+    const seconds = value / 1000;
+    return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1)}s`;
+  }
+  return `${Math.round(value)}ms`;
 }

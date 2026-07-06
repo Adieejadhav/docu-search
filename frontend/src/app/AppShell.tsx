@@ -1,18 +1,13 @@
 import type { ReactNode } from "react";
-import { Database, Moon, RefreshCw, Sparkles, Sun } from "lucide-react";
+import { Database, Moon, Sparkles, Sun } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
 import { useTheme } from "./ThemeContext";
-import { API_BASE_URL } from "../services/api";
 import { adminNavigation, navigationItemForPath, primaryNavigation, titleForPath } from "./navigation";
 
 export function AppShell({
-  onRefresh,
-  refreshDisabled,
   children,
 }: {
-  onRefresh: () => void;
-  refreshDisabled: boolean;
   children: ReactNode;
 }) {
   const location = useLocation();
@@ -24,7 +19,6 @@ export function AppShell({
   const isChatRoute = location.pathname.startsWith("/chat");
   const chatNavigation = primaryNavigation.find((item) => item.section === "chat");
   const ChatIcon = chatNavigation?.icon;
-  const isAdminRoute = location.pathname.startsWith("/admin");
 
   if (isChatRoute) {
     return (
@@ -95,32 +89,8 @@ export function AppShell({
             {description && <p className="topbar-description">{description}</p>}
           </div>
           <div className="topbar-right">
-            {isAdminRoute && (
-              <div className="admin-runtime-pills" aria-label="Runtime status">
-                <span className="admin-pill"><i />Local</span>
-                <span className={`admin-pill ${health?.status === "ok" ? "ok" : "warn"}`}><i />API {health?.status === "ok" ? "healthy" : "degraded"}</span>
-                <span className={`admin-pill ${documents?.total ? "ok" : "warn"}`}><i />Vector {documents?.total ? "ready" : "pending"}</span>
-                <span className={`admin-pill ${health?.llm.status === "ok" ? "ok" : "warn"}`}><i />LLM {health?.llm.status === "ok" ? "online" : "degraded"}</span>
-              </div>
-            )}
             <div className="topbar-actions">
-              {!isAdminRoute && <code>{API_BASE_URL}</code>}
-              {isAdminRoute && (
-                <>
-                  <NavLink className="admin-action" to="/admin/playground">Playground</NavLink>
-                  <NavLink className="admin-action primary" to="/admin/evaluations">Run Eval</NavLink>
-                </>
-              )}
               <ThemeToggle />
-              <button
-                className="icon-button"
-                type="button"
-                onClick={onRefresh}
-                disabled={refreshDisabled}
-                title="Refresh"
-              >
-                <RefreshCw size={18} />
-              </button>
             </div>
           </div>
         </header>

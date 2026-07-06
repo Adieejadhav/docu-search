@@ -7,6 +7,7 @@ import type {
   AdminOverviewRecentTrace,
   AdminOverviewResponse,
 } from "../../../services/types";
+import { BlueprintPage } from "../AdminBlueprintPrimitives";
 
 export function AdminOverviewPage() {
   const { setError } = useAppData();
@@ -33,7 +34,8 @@ export function AdminOverviewPage() {
   const jobs = overview?.ingestion_jobs;
 
   return (
-    <div className="ops-overview-page">
+    <BlueprintPage>
+      <div className="ops-overview-page">
       <section className="ops-hero-grid" aria-label="Operational summary">
         <OverviewHeroCard
           label="System Health"
@@ -141,7 +143,8 @@ export function AdminOverviewPage() {
           </div>
         </OverviewPanel>
       </section>
-    </div>
+      </div>
+    </BlueprintPage>
   );
 }
 
@@ -208,10 +211,18 @@ function TraceRow({ trace }: { trace: AdminOverviewRecentTrace }) {
   return (
     <tr>
       <td>{trace.query}</td>
-      <td><span className="ops-status ok">{statusLabel(trace.status)}</span></td>
-      <td>{formatMetric(trace.result_count)}</td>
-      <td>{formatDuration(trace.total_ms)}</td>
-      <td>{shortModelName(trace.llm_model)}</td>
+      <td>
+        <span className="overview-table-pill ok">{statusLabel(trace.status)}</span>
+      </td>
+      <td>
+        <span className="overview-table-pill chunks">{formatMetric(trace.result_count)}</span>
+      </td>
+      <td>
+        <span className="overview-table-pill latency">{formatDuration(trace.total_ms)}</span>
+      </td>
+      <td>
+        <span className="overview-table-pill model">{shortModelName(trace.llm_model)}</span>
+      </td>
       <td>{formatDateTime(trace.created_at)}</td>
       <td><button type="button">View</button></td>
     </tr>
@@ -221,13 +232,31 @@ function TraceRow({ trace }: { trace: AdminOverviewRecentTrace }) {
 function PipelineJobRow({ job }: { job: AdminOverviewRecentJob }) {
   return (
     <tr>
-      <td>{titleCase(job.source_kind)}</td>
-      <td><span className={`ops-status ${job.status === "completed" ? "ok" : "warn"}`}>{statusLabel(job.status)}</span></td>
-      <td>{formatMetric(job.file_count)}</td>
-      <td>{formatMetric(job.parsed_document_count)}</td>
-      <td>{formatMetric(job.indexed_child_count)}</td>
-      <td>{formatMetric(job.failure_count)}</td>
-      <td>{formatDuration(job.duration_ms)}</td>
+      <td>
+        <span className="overview-table-pill source">{titleCase(job.source_kind)}</span>
+      </td>
+      <td>
+        <span className={`overview-table-pill ${job.status === "completed" ? "ok" : "warn"}`}>
+          {statusLabel(job.status)}
+        </span>
+      </td>
+      <td>
+        <span className="overview-table-pill files">{formatMetric(job.file_count)}</span>
+      </td>
+      <td>
+        <span className="overview-table-pill parent">{formatMetric(job.parsed_document_count)}</span>
+      </td>
+      <td>
+        <span className="overview-table-pill chunks">{formatMetric(job.indexed_child_count)}</span>
+      </td>
+      <td>
+        <span className={`overview-table-pill ${job.failure_count ? "danger" : "muted"}`}>
+          {formatMetric(job.failure_count)}
+        </span>
+      </td>
+      <td>
+        <span className="overview-table-pill latency">{formatDuration(job.duration_ms)}</span>
+      </td>
       <td>{formatDateTime(job.updated_at)}</td>
     </tr>
   );
