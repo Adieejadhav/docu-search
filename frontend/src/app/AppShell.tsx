@@ -54,19 +54,15 @@ export function AppShell({
           )}
 
           <p className="nav-group-label">Administration</p>
-          {adminNavigation.map((item) => {
-            const itemIndex = adminNavigation.findIndex((entry) => entry.to === item.to) + 1;
-            return (
-              <NavLink
-                className={({ isActive }) => (isActive ? "active" : "")}
-                key={item.to}
-                to={item.to}
-              >
-                <span className="nav-index">{String(itemIndex).padStart(2, "0")}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
+          {adminNavigation.map((item) => (
+            <NavLink
+              className={({ isActive }) => (isActive ? "active" : "")}
+              key={item.to}
+              to={item.to}
+            >
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
         <section className="sidebar-status">

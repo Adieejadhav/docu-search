@@ -173,10 +173,22 @@ export function AdminDocumentDetailPage() {
             title="Stored Chunks"
           >
             {chunks.length ? (
-              <div className="chunk-inspector">
-                {chunks.map((chunk) => (
-                  <ChunkCard chunk={chunk} key={chunk.child_chunk_id} />
-                ))}
+              <div className="ops-table-wrap">
+                <table className="ops-table chunk-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Chunk</th>
+                      <th>Parent</th>
+                      <th>Tokens</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chunks.map((chunk) => (
+                      <ChunkRow chunk={chunk} key={chunk.child_chunk_id} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <EmptyState icon={<FileText size={22} />}>No chunks returned for this document.</EmptyState>
@@ -206,26 +218,48 @@ export function AdminDocumentDetailPage() {
   );
 }
 
-function ChunkCard({ chunk }: { chunk: DocumentChunkSummary }) {
+function ChunkRow({ chunk }: { chunk: DocumentChunkSummary }) {
   return (
-    <details className="chunk-row chunk-collapsible">
-      <summary>
-        <span className="chunk-disclosure" aria-hidden="true" />
-        <span className="chunk-summary-main">
-          <strong>
-            Chunk #{chunk.child_index}
-          </strong>
-          <small>Parent #{chunk.parent_index}</small>
-        </span>
-        <span className="chunk-summary-meta">
-          {formatMetric(chunk.child_token_count)} tokens
-        </span>
-      </summary>
-      <div className="chunk-content">
-        <p>{chunk.child_text}</p>
-      </div>
-    </details>
+    <>
+      <tr className="chunk-table-row">
+        <td>
+          <button
+            aria-expanded={false}
+            className="chunk-table-toggle"
+            onClick={(event) => toggleChunkRow(event.currentTarget)}
+            type="button"
+          >
+            <span className="chunk-disclosure" aria-hidden="true" />
+          </button>
+        </td>
+        <td>
+          <span className="document-table-pill child">Chunk {chunk.child_index}</span>
+        </td>
+        <td>
+          <span className="document-table-pill parent">Parent {chunk.parent_index}</span>
+        </td>
+        <td>{formatMetric(chunk.child_token_count)}</td>
+      </tr>
+      <tr className="chunk-expanded-row" hidden>
+        <td colSpan={4}>
+          <div className="chunk-expanded-content">
+            <p>{chunk.child_text}</p>
+          </div>
+        </td>
+      </tr>
+    </>
   );
+}
+
+function toggleChunkRow(button: HTMLButtonElement) {
+  const currentRow = button.closest("tr");
+  const contentRow = currentRow?.nextElementSibling as HTMLTableRowElement | null;
+  const isOpen = button.getAttribute("aria-expanded") === "true";
+
+  button.setAttribute("aria-expanded", String(!isOpen));
+  if (contentRow) {
+    contentRow.hidden = isOpen;
+  }
 }
 
 function cleanDocumentTitle(fileName: string, title: string): string {
