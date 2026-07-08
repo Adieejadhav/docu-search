@@ -3294,6 +3294,10 @@ input:focus {
   align-items: stretch;
 }
 
+.index-summary-strip {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 .document-summary-card {
   position: relative;
   display: flex;
@@ -4133,6 +4137,22 @@ input:focus {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #38bdf8, #60a5fa);
+}
+
+.index-coverage-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 190px;
+}
+
+.index-coverage-cell .blueprint-progress {
+  width: 118px;
+}
+
+.index-coverage-cell strong {
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .chunk {

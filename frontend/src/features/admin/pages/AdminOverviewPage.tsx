@@ -28,7 +28,6 @@ export function AdminOverviewPage() {
 
   const health = overview?.health;
   const index = overview?.index;
-  const queries = overview?.queries;
   const risk = overview?.risk;
   const quality = overview?.quality;
   const jobs = overview?.ingestion_jobs;
@@ -64,18 +63,6 @@ export function AdminOverviewPage() {
           description={risk?.reasons[0] ?? "No active warnings"}
           status={risk?.status === "ok" ? "Clear" : "Attention"}
           tone={risk?.status === "ok" ? "ok" : "warn"}
-        />
-      </section>
-
-      <section className="ops-inventory-grid" aria-label="Index inventory">
-        <OverviewStat label="Documents" value={formatMetric(index?.document_count)} detail="indexed" />
-        <OverviewStat label="Parent chunks" value={formatMetric(index?.parent_chunk_count)} detail="retrieval groups" />
-        <OverviewStat label="Child chunks" value={formatMetric(index?.child_chunk_count)} detail="search records" />
-        <OverviewStat label="Vectors" value={formatMetric(index?.vector_count)} detail={`${formatPercent(index?.readiness_percent)} ready`} />
-        <OverviewStat
-          label="Queries"
-          value={formatMetric(queries?.total)}
-          detail={queryDetail(queries?.today, queries?.avg_latency_ms)}
         />
       </section>
 
@@ -169,16 +156,6 @@ function OverviewHeroCard({
         <small>{description}</small>
       </div>
       <em>{status}</em>
-    </article>
-  );
-}
-
-function OverviewStat({ detail, label, value }: { detail: string; label: string; value: string }) {
-  return (
-    <article className="ops-stat-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
     </article>
   );
 }
@@ -289,14 +266,6 @@ function formatDuration(value: number | null | undefined): string {
 
 function qualityValue(scorePercent: number | null | undefined): string {
   return typeof scorePercent === "number" ? formatPercent(scorePercent) : "Not measured";
-}
-
-function queryDetail(today: number | null | undefined, avgLatencyMs: number | null | undefined): string {
-  const pieces = [`${formatMetric(today)} today`];
-  if (typeof avgLatencyMs === "number") {
-    pieces.push(`avg ${formatDuration(avgLatencyMs)}`);
-  }
-  return pieces.join(" | ");
 }
 
 function indexStatus(readinessPercent: number | null | undefined, childChunkCount: number | null | undefined): string {
