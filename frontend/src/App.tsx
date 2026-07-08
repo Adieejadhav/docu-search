@@ -8,6 +8,7 @@ import { AdminLayout } from "./features/admin/AdminLayout";
 import { AdminDocumentDetailPage } from "./features/admin/pages/AdminDocumentDetailPage";
 import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
 import { AdminIndexPage } from "./features/admin/pages/AdminIndexPage";
+import { AdminIngestionJobDetailPage } from "./features/admin/pages/AdminIngestionJobDetailPage";
 import { AdminOverviewPage } from "./features/admin/pages/AdminOverviewPage";
 import { AdminPipelinePage } from "./features/admin/pages/AdminPipelinePage";
 import { AdminPlaygroundPage } from "./features/admin/pages/AdminPlaygroundPage";
@@ -59,6 +60,7 @@ function AppRoutes() {
           <Route path="documents/detail" element={<Navigate to="/admin/documents" replace />} />
           <Route path="documents/:documentId" element={<AdminDocumentDetailPage />} />
           <Route path="pipeline" element={<AdminPipelinePage />} />
+          <Route path="pipeline/:jobId" element={<AdminIngestionJobDetailPage />} />
           <Route path="vector-indexes" element={<AdminVectorIndexPage />} />
           <Route path="playground" element={<AdminPlaygroundPage />} />
           <Route path="traces" element={<AdminTracesPage />} />
