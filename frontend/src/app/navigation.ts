@@ -1,12 +1,10 @@
 import {
   Activity,
-  ClipboardCheck,
   Database,
   FileText,
   Gauge,
   History,
   MessageSquareText,
-  Search,
   UploadCloud,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -81,15 +79,6 @@ export const adminNavigation: NavigationItem[] = [
     icon: Database,
   },
   {
-    to: "/admin/playground",
-    label: "Playground",
-    title: "Query Playground",
-    eyebrow: "Operations / Retrieval",
-    description: "Test live search and answer generation against the indexed documents.",
-    section: "admin",
-    icon: Search,
-  },
-  {
     to: "/admin/traces",
     label: "Traces",
     title: "Trace Explorer",
@@ -97,15 +86,6 @@ export const adminNavigation: NavigationItem[] = [
     description: "Debug retrieval, generation, citations, latency, and trace-level failures.",
     section: "admin",
     icon: History,
-  },
-  {
-    to: "/admin/evaluations",
-    label: "Evaluation",
-    title: "Evaluation Center",
-    eyebrow: "Operations / Evaluation",
-    description: "Run the current evaluation cases and inspect saved evaluation history.",
-    section: "admin",
-    icon: ClipboardCheck,
   },
   {
     to: "/admin/test-bench",

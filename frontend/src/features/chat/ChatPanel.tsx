@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,20 +9,18 @@ import {
 } from "react";
 import {
   ArrowDown,
-  ArrowUpRight,
   Check,
   Copy,
-  FileSearch,
+  LayoutDashboard,
   LogIn,
   LoaderCircle,
-  Menu,
-  MessageSquare,
   MessageSquarePlus,
-  PanelLeftClose,
+  Moon,
+  Plus,
   Search,
   SendHorizontal,
   Settings,
-  Sparkles,
+  Sun,
   Trash2,
   UserCircle,
   X,
@@ -31,7 +28,11 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "react-router-dom";
-import { useAppData } from "../../app/AppDataContext";
+import {
+  WorkspaceSidebar,
+  WorkspaceSidebarItem,
+} from "../../app/WorkspaceSidebar";
+import { useTheme } from "../../app/ThemeContext";
 import {
   API_BASE_URL,
   askChatStream,
@@ -39,7 +40,7 @@ import {
   getChatSession,
   listChatSessions,
 } from "../../services/api";
-import { formatDateTime, messageFromError, scorePercent, summarizeDocuments } from "../../lib/format";
+import { messageFromError } from "../../lib/format";
 import type { ChatMessage } from "./types";
 import type {
   ChatMessageResponse,
@@ -47,20 +48,11 @@ import type {
   RetrievedChunkResponse,
 } from "../../services/types";
 
-const SIDEBAR_MIN_WIDTH = 248;
-const SIDEBAR_MAX_WIDTH = 420;
-const SIDEBAR_DEFAULT_WIDTH = 304;
-const COMPOSER_MIN_HEIGHT = 40;
-const COMPOSER_MAX_HEIGHT = 200;
+const SIDEBAR_MIN_WIDTH = 224;
+const SIDEBAR_MAX_WIDTH = 320;
+const SIDEBAR_DEFAULT_WIDTH = 252;
 
 type StreamPhase = "searching" | "answering" | null;
-
-const SUGGESTIONS = [
-  "Which policy mentions the 14-day satellite-mode exception?",
-  "Which team owns model-assisted triage?",
-  "What evidence is required for policy verification?",
-  "How long are hourly aggregated metrics retained?",
-];
 
 export function ChatPanel({
   error,
@@ -69,7 +61,6 @@ export function ChatPanel({
   error?: string | null;
   onError: (message: string | null) => void;
 }) {
-  const { documents, health } = useAppData();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -81,6 +72,7 @@ export function ChatPanel({
   const [streamPhase, setStreamPhase] = useState<StreamPhase>(null);
   const [isNearBottom, setNearBottom] = useState(true);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isResizingSidebar, setResizingSidebar] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -88,17 +80,7 @@ export function ChatPanel({
   const isNearBottomRef = useRef(true);
 
   const hasConversation = messages.length > 0;
-  const documentStats = useMemo(
-    () => summarizeDocuments(documents?.documents ?? []),
-    [documents],
-  );
-  const documentCount = documents?.total ?? 0;
-  const chunkCount = documentStats.childChunks;
-  const isKnowledgeReady = !!documentCount && health?.status === "ok";
-  const activeSession = useMemo(
-    () => sessions.find((session) => session.id === activeSessionId),
-    [activeSessionId, sessions],
-  );
+  const { theme, toggleTheme } = useTheme();
   const filteredSessions = useMemo(() => {
     const query = historyQuery.trim().toLocaleLowerCase();
     if (!query) return sessions;
@@ -120,20 +102,6 @@ export function ChatPanel({
       behavior: isAsking ? "auto" : "smooth",
     });
   }, [messages, isAsking]);
-
-  useLayoutEffect(() => {
-    const input = draftInputRef.current;
-    if (!input) return;
-
-    input.style.height = "auto";
-    const nextHeight = Math.min(
-      Math.max(input.scrollHeight, COMPOSER_MIN_HEIGHT),
-      COMPOSER_MAX_HEIGHT,
-    );
-    input.style.height = `${nextHeight}px`;
-    input.style.overflowY =
-      input.scrollHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
-  }, [draft]);
 
   useEffect(() => {
     if (!isResizingSidebar) return;
@@ -195,11 +163,6 @@ export function ChatPanel({
     markConversationAtBottom();
     onError(null);
     closeSidebarOnNarrowViewport(setSidebarOpen);
-    window.requestAnimationFrame(() => draftInputRef.current?.focus());
-  }
-
-  function selectSuggestion(value: string) {
-    setDraft(value);
     window.requestAnimationFrame(() => draftInputRef.current?.focus());
   }
 
@@ -345,39 +308,74 @@ export function ChatPanel({
         />
       )}
 
-      <aside
+      <WorkspaceSidebar
+        after={
+          <div
+            aria-hidden="true"
+            className="rag-chat-resize"
+            onPointerDown={startSidebarResize}
+          />
+        }
         className={[
           "rag-chat-sidebar",
           isSidebarOpen ? "open" : "closed",
         ].join(" ")}
-        style={{ width: isSidebarOpen ? sidebarWidth : 0 }}
-      >
-        <div className="rag-chat-sidebar-inner">
-          <div className="rag-chat-brand">
-            <div className="rag-chat-logo">
-              <Sparkles size={21} />
+        footer={
+          <div className="rag-chat-profile">
+            <div className="rag-chat-avatar">
+              <UserCircle size={21} />
             </div>
             <div>
-              <h2>Docu Search</h2>
-              <p>Knowledge workspace</p>
+              <strong>Guest workspace</strong>
+              <small>Local profile</small>
             </div>
-            <button
-              aria-label="Close sidebar"
-              className="rag-chat-icon-button mobile-only"
-              onClick={() => setSidebarOpen(false)}
-              type="button"
-            >
-              <X size={17} />
+            <div className="rag-chat-settings">
+              <button
+                aria-expanded={isSettingsOpen}
+                aria-label="Open settings"
+                onClick={() => setSettingsOpen((current) => !current)}
+                title="Settings"
+                type="button"
+              >
+                <Settings size={16} />
+              </button>
+              {isSettingsOpen && (
+                <div className="rag-chat-settings-menu">
+                  <Link onClick={() => setSettingsOpen(false)} to="/admin/overview">
+                    <LayoutDashboard size={16} />
+                    <span>Admin panel</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      toggleTheme();
+                      setSettingsOpen(false);
+                    }}
+                    type="button"
+                  >
+                    {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                    <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            <button aria-label="Sign in" title="Sign in" type="button">
+              <LogIn size={16} />
             </button>
           </div>
+        }
+        isOpen={isSidebarOpen}
+        onToggle={() => setSidebarOpen((current) => !current)}
+        style={{ width: isSidebarOpen ? sidebarWidth : 64 }}
+        subtitle="Knowledge workspace"
+      >
+        <div className="workspace-sidebar-tools">
+            <WorkspaceSidebarItem
+              icon={<MessageSquarePlus size={17} />}
+              label="New chat"
+              onClick={startNewChat}
+            />
 
-          <div className="rag-chat-sidebar-pad">
-            <button className="rag-chat-new-button" onClick={startNewChat} type="button">
-              <MessageSquarePlus size={18} />
-              New chat
-            </button>
-
-            <div className="rag-chat-search">
+            <div className="workspace-sidebar-search">
               <Search size={16} />
               <input
                 aria-label="Search chat history"
@@ -397,110 +395,42 @@ export function ChatPanel({
               )}
             </div>
 
-            <div className="rag-chat-section-label">
+            <div className="workspace-sidebar-label">
               <span>Recent chats</span>
               <span>{filteredSessions.length}</span>
             </div>
-          </div>
+        </div>
 
-          <div className="rag-chat-history">
+        <div className="workspace-sidebar-list">
             {isLoadingSessions && <HistorySkeleton />}
             {!isLoadingSessions &&
               filteredSessions.map((session) => (
-                <article
-                  className={[
-                    "rag-chat-history-row",
-                    session.id === activeSessionId ? "active" : "",
-                  ].join(" ")}
+                <WorkspaceSidebarItem
+                  active={session.id === activeSessionId}
                   key={session.id}
-                >
-                  <button onClick={() => void loadSession(session.id)} type="button">
-                    <MessageSquare size={16} />
-                    <span>
-                      <strong>{session.title}</strong>
-                      <small>
-                        {session.message_count} messages · {formatDateTime(session.updated_at)}
-                      </small>
-                    </span>
-                  </button>
-                  <button
-                    aria-label={`Delete ${session.title}`}
-                    className="delete"
-                    onClick={(event) => void removeSession(event, session)}
-                    type="button"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </article>
+                  label={session.title}
+                  onClick={() => void loadSession(session.id)}
+                  trailing={
+                    <button
+                      aria-label={`Delete ${session.title}`}
+                      className="workspace-sidebar-delete"
+                      onClick={(event) => void removeSession(event, session)}
+                      type="button"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  }
+                />
               ))}
             {!isLoadingSessions && !filteredSessions.length && (
-              <div className="rag-chat-empty-history">
+              <div className="workspace-sidebar-empty">
                 {historyQuery ? "No matching chats." : "No saved chats yet."}
               </div>
             )}
-          </div>
-
-          <KnowledgeBaseCard
-            chunkCount={chunkCount}
-            documentCount={documentCount}
-            isReady={isKnowledgeReady}
-          />
-
-          <footer className="rag-chat-profile">
-            <div className="rag-chat-avatar">
-              <UserCircle size={21} />
-            </div>
-            <div>
-              <strong>Guest workspace</strong>
-              <small>Local profile</small>
-            </div>
-            <Link aria-label="Admin panel" title="Admin panel" to="/admin/overview">
-              <Settings size={16} />
-            </Link>
-            <button aria-label="Sign in" title="Sign in" type="button">
-              <LogIn size={16} />
-            </button>
-          </footer>
         </div>
-
-        <div
-          aria-hidden="true"
-          className="rag-chat-resize"
-          onPointerDown={startSidebarResize}
-        />
-      </aside>
+      </WorkspaceSidebar>
 
       <section className="rag-chat-main">
-        <header className="rag-chat-topbar">
-          <div className="rag-chat-top-left">
-            <button
-              aria-label={isSidebarOpen ? "Hide chat history" : "Show chat history"}
-              className="rag-chat-icon-button"
-              onClick={() => setSidebarOpen((current) => !current)}
-              type="button"
-            >
-              {isSidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
-            </button>
-            <div className="rag-chat-title-wrap">
-              <h1>{activeSession?.title || "New chat"}</h1>
-              <p>
-                {hasConversation
-                  ? "Company Docs · grounded answer with sources"
-                  : "Ask across indexed company documents"}
-              </p>
-            </div>
-          </div>
-          <div className="rag-chat-top-actions">
-            <div className={["rag-chat-pill", isKnowledgeReady ? "ready" : "warn"].join(" ")}>
-              <span className="rag-chat-pulse" />
-              Company Docs · {formatCompactNumber(documentCount)} docs · {isKnowledgeReady ? "Ready" : "Index pending"}
-            </div>
-            <Link className="rag-chat-top-button" to="/admin/overview">
-              Admin
-            </Link>
-          </div>
-        </header>
-
         <section className="rag-chat-content">
           <div
             className="rag-chat-scroll"
@@ -508,12 +438,7 @@ export function ChatPanel({
             ref={messageListRef}
           >
             {!hasConversation && !isLoadingSession && (
-              <WelcomePanel
-                chunkCount={chunkCount}
-                documentCount={documentCount}
-                isReady={isKnowledgeReady}
-                onSelectSuggestion={selectSuggestion}
-              />
+              <WelcomePanel />
             )}
 
             <div className="rag-chat-conversation">
@@ -563,7 +488,7 @@ export function ChatPanel({
           )}
 
           <form
-            className="rag-chat-composer"
+            className={`rag-chat-composer ${hasConversation ? "" : "empty"}`.trim()}
             onSubmit={(event) => void submitQuestion(event)}
           >
             <button
@@ -572,7 +497,7 @@ export function ChatPanel({
               onClick={startNewChat}
               type="button"
             >
-              +
+              <Plus aria-hidden="true" size={20} strokeWidth={1.8} />
             </button>
             <textarea
               aria-label="Message Docu Search"
@@ -589,13 +514,6 @@ export function ChatPanel({
               value={draft}
             />
             <button
-              className="rag-chat-kb-button"
-              title={`${formatCompactNumber(documentCount)} documents, ${formatCompactNumber(chunkCount)} chunks`}
-              type="button"
-            >
-              KB
-            </button>
-            <button
               aria-label="Send message"
               className="rag-chat-send"
               disabled={!draft.trim() || isAsking}
@@ -610,78 +528,11 @@ export function ChatPanel({
   );
 }
 
-function WelcomePanel({
-  chunkCount,
-  documentCount,
-  isReady,
-  onSelectSuggestion,
-}: {
-  chunkCount: number;
-  documentCount: number;
-  isReady: boolean;
-  onSelectSuggestion: (value: string) => void;
-}) {
+function WelcomePanel() {
   return (
     <section className="rag-chat-welcome">
       <div className="rag-chat-hero">
-        <div className="rag-chat-hero-icon">
-          <FileSearch size={23} />
-        </div>
-        <h1>What should we look up?</h1>
-        <p>Ask questions across your indexed company documents and get answers with sources.</p>
-        <div className={["rag-chat-readiness", isReady ? "ready" : "warn"].join(" ")}>
-          <span className="rag-chat-pulse" />
-          <b>Company Docs</b>
-          <span>{formatCompactNumber(documentCount)} documents</span>
-          <span>{formatCompactNumber(chunkCount)} chunks</span>
-          <span>{isReady ? "Ready" : "Index pending"}</span>
-        </div>
-
-        <div className="rag-chat-suggestions">
-          {SUGGESTIONS.map((suggestion) => (
-            <button
-              key={suggestion}
-              onClick={() => onSelectSuggestion(suggestion)}
-              type="button"
-            >
-              <span>{suggestion}</span>
-              <ArrowUpRight size={16} />
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function KnowledgeBaseCard({
-  chunkCount,
-  documentCount,
-  isReady,
-}: {
-  chunkCount: number;
-  documentCount: number;
-  isReady: boolean;
-}) {
-  return (
-    <section className="rag-chat-kb-card" aria-label="Knowledge base status">
-      <div className="top">
-        <h3>Knowledge base</h3>
-        <span className={["status", isReady ? "ready" : "warn"].join(" ")}>
-          <i className="rag-chat-pulse" />
-          {isReady ? "Ready" : "Pending"}
-        </span>
-      </div>
-      <strong>Company Docs</strong>
-      <div className="rag-chat-kb-grid">
-        <article>
-          <b>{formatCompactNumber(documentCount)}</b>
-          <span>indexed docs</span>
-        </article>
-        <article>
-          <b>{formatCompactNumber(chunkCount)}</b>
-          <span>search chunks</span>
-        </article>
+        <h1>How can I help?</h1>
       </div>
     </section>
   );
@@ -695,7 +546,6 @@ function MessageBubble({
   streamPhase: StreamPhase;
 }) {
   const [isCopied, setCopied] = useState(false);
-  const [showSourceDetails, setShowSourceDetails] = useState(false);
 
   async function copyMessage() {
     try {
@@ -721,31 +571,13 @@ function MessageBubble({
   return (
     <article className="rag-chat-message assistant">
       <div className="rag-chat-answer-card">
-        <header className="rag-chat-answer-head">
-          <div className="rag-chat-assistant-label">
-            <span><Sparkles size={16} /></span>
-            <strong>Docu Search</strong>
-          </div>
-          {!!message.sources?.length && (
-            <em>Answer grounded in {uniqueDocumentSources(message.sources).length} sources</em>
-          )}
-        </header>
-
         <div className="rag-chat-answer-text">
           {isWaitingForFirstToken ? (
             <StreamStatus phase={streamPhase ?? "answering"} />
           ) : (
-            <ChatMarkdown text={message.content} sources={message.sources ?? []} />
+            <ChatMarkdown text={message.content} />
           )}
         </div>
-
-        {!isStreaming && !!message.sources?.length && (
-          <SourcesPanel
-            isOpen={showSourceDetails}
-            onToggle={() => setShowSourceDetails((current) => !current)}
-            sources={message.sources}
-          />
-        )}
 
         {!isStreaming && message.content && (
           <footer className="rag-chat-answer-actions">
@@ -758,25 +590,18 @@ function MessageBubble({
               {isCopied ? <Check size={15} /> : <Copy size={15} />}
               {isCopied ? "Copied" : "Copy"}
             </button>
-            <div>
-              <span>Was this helpful?</span>
-              <button aria-label="Helpful" type="button">👍</button>
-              <button aria-label="Not helpful" type="button">👎</button>
-            </div>
           </footer>
+        )}
+
+        {!isStreaming && !!message.sources?.length && (
+          <SourcesPanel sources={message.sources} />
         )}
       </div>
     </article>
   );
 }
 
-function ChatMarkdown({
-  text,
-  sources,
-}: {
-  text: string;
-  sources: RetrievedChunkResponse[];
-}) {
+function ChatMarkdown({ text }: { text: string }) {
   return (
     <ReactMarkdown
       components={{
@@ -854,76 +679,36 @@ function ChatMarkdown({
       }}
       remarkPlugins={[remarkGfm]}
     >
-      {linkCitationMarkers(text, sources)}
+      {stripCitationMarkers(text)}
     </ReactMarkdown>
   );
 }
 
-function SourcesPanel({
-  isOpen,
-  onToggle,
-  sources,
-}: {
-  isOpen: boolean;
-  onToggle: () => void;
-  sources: RetrievedChunkResponse[];
-}) {
-  const uniqueSources = uniqueDocumentSources(sources);
+function SourcesPanel({ sources }: { sources: RetrievedChunkResponse[] }) {
+  const linkedSources = uniqueDocumentSources(sources).filter(sourceDocumentUrl);
+
+  if (!linkedSources.length) return null;
 
   return (
     <section className="rag-chat-sources" aria-label="Source documents">
-      <h3>Sources</h3>
-      <div className="rag-chat-source-chips">
-        {uniqueSources.map((source) => {
-          const href = sourceDocumentUrl(source);
+      <h3>References</h3>
+      <div className="rag-chat-source-list">
+        {linkedSources.map((source) => {
+          const href = sourceDocumentUrl(source)!;
           const fileName = source.file_name ?? "Source document";
-
-          const label = `${source.rank}. ${fileName}`;
-          return href ? (
+          return (
             <a
               href={href}
               id={`source-${source.rank}`}
               key={source.child_chunk_id}
               rel="noreferrer"
               target="_blank"
-              title={`Open source - relevance ${scorePercent(source.score)}`}
             >
-              {label}
+              {fileName}
             </a>
-          ) : (
-            <span
-              id={`source-${source.rank}`}
-              key={source.child_chunk_id}
-              title="This saved source does not include a document id yet."
-            >
-              {label}
-            </span>
           );
         })}
       </div>
-      <button className="rag-chat-source-toggle" onClick={onToggle} type="button">
-        {isOpen ? "Hide source details" : "View source details"}
-      </button>
-      {isOpen && (
-        <div className="rag-chat-source-details">
-          <header>
-            <span>Source details</span>
-            <small>Expanded only when requested</small>
-          </header>
-          <div>
-            {sources.slice(0, 4).map((source) => (
-              <article key={source.child_chunk_id}>
-                <strong>{source.file_name ?? "Source document"}</strong>
-                <p>{source.child_text || source.parent_text}</p>
-                <footer>
-                  <span>Rank {source.rank}</span>
-                  <span>{scorePercent(source.score)} relevance</span>
-                </footer>
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -1004,36 +789,15 @@ function uniqueDocumentSources(
   });
 }
 
-function linkCitationMarkers(
-  text: string,
-  sources: RetrievedChunkResponse[],
-): string {
-  const urlsByRank = new Map(
-    sources.flatMap((source) => {
-      const url = sourceDocumentUrl(source);
-      return url ? [[source.rank, url] as const] : [];
-    }),
-  );
-
-  if (!urlsByRank.size) return text;
-
+function stripCitationMarkers(text: string): string {
   return text
     .split(/(```[\s\S]*?```|`[^`\n]+`)/g)
     .map((segment) => {
       if (segment.startsWith("`")) return segment;
 
       return segment
-        .replace(/\[(\d+)\](?!\()/g, (marker, rankText: string) => {
-          const url = urlsByRank.get(Number(rankText));
-          return url ? `[${rankText}](${url})` : marker;
-        })
-        .replace(
-          /\u3010(\d+)(?:\u2020[^\u3011]*)?\u3011/g,
-          (marker, rankText: string) => {
-            const url = urlsByRank.get(Number(rankText));
-            return url ? `[${rankText}](${url})` : marker;
-          },
-        );
+        .replace(/\s*\[\d+(?:\s*,\s*\d+)*\](?:\([^)\n]+\))?/g, "")
+        .replace(/\s*\u3010\d+(?:\u2020[^\u3011]*)?\u3011/g, "");
     })
     .join("");
 }
@@ -1041,14 +805,6 @@ function linkCitationMarkers(
 function sourceDocumentUrl(source: RetrievedChunkResponse): string | undefined {
   if (!source.document_id) return undefined;
   return `${API_BASE_URL}/documents/${encodeURIComponent(source.document_id)}/source`;
-}
-
-function formatCompactNumber(value: number | null | undefined): string {
-  if (typeof value !== "number") return "0";
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 1,
-    notation: value >= 1000 ? "compact" : "standard",
-  }).format(value);
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -112,12 +112,16 @@ def reset_schema(*, database_url: str, migration_path: Path) -> None:
             details={"migration_path": str(migration_path)},
         )
 
-    migration_sql = migration_path.read_text(encoding="utf-8")
+    migration_paths = [migration_path]
+    if migration_path.resolve() == default_migration_path().resolve():
+        migration_paths = sorted(migration_path.parent.glob("*.sql"))
+
     with connect(database_url) as connection:
         connection.execute("DROP SCHEMA IF EXISTS public CASCADE")
         connection.execute("CREATE SCHEMA public")
         connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        connection.execute(migration_sql)
+        for path in migration_paths:
+            connection.execute(path.read_text(encoding="utf-8"))
 
 
 def ensure_tables_exist(connection) -> None:

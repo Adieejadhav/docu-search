@@ -65,11 +65,6 @@ class AdminOverviewRisk(BaseModel):
     reasons: list[str] = Field(default_factory=list)
 
 
-class AdminOverviewQuality(BaseModel):
-    status: Literal["not_measured"] = "not_measured"
-    score_percent: float | None = None
-
-
 class AdminOverviewRecentTrace(BaseModel):
     id: str
     query: str
@@ -102,6 +97,5 @@ class AdminOverviewResponse(BaseModel):
     queries: AdminOverviewQueryCounts
     ingestion_jobs: AdminOverviewIngestionJobs
     risk: AdminOverviewRisk
-    quality: AdminOverviewQuality
     recent_traces: list[AdminOverviewRecentTrace] = Field(default_factory=list)
     recent_jobs: list[AdminOverviewRecentJob] = Field(default_factory=list)

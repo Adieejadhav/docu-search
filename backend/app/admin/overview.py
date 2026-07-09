@@ -14,7 +14,6 @@ from app.schemas import (
     AdminOverviewHealth,
     AdminOverviewIndexStats,
     AdminOverviewIngestionJobs,
-    AdminOverviewQuality,
     AdminOverviewQueryCounts,
     AdminOverviewRecentJob,
     AdminOverviewRecentTrace,
@@ -88,7 +87,6 @@ class AdminOverviewService:
                 index=index,
                 ingestion_jobs=ingestion_jobs,
             ),
-            quality=AdminOverviewQuality(),
             recent_traces=recent_traces,
             recent_jobs=recent_jobs,
         )

@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
-import { Database, Moon, Sparkles, Sun } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { Database, Moon, Sun } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useAppData } from "./AppDataContext";
 import { useTheme } from "./ThemeContext";
 import { adminNavigation, navigationItemForPath, primaryNavigation, titleForPath } from "./navigation";
+import { WorkspaceSidebar, WorkspaceSidebarItem } from "./WorkspaceSidebar";
 
 export function AppShell({
   children,
@@ -11,6 +12,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const location = useLocation();
+  const [isAdminSidebarOpen, setAdminSidebarOpen] = useState(true);
   const { documents, health } = useAppData();
   const activeItem = navigationItemForPath(location.pathname);
   const title = activeItem?.title ?? titleForPath(location.pathname);
@@ -23,59 +25,60 @@ export function AppShell({
   if (isChatRoute) {
     return (
       <main className="chat-route-shell min-h-screen bg-slate-50 text-slate-900">
-        <ThemeToggle compact />
         {children}
       </main>
     );
   }
 
   return (
-    <main className="app-shell admin-blueprint-shell">
-      <aside className="app-sidebar">
-        <div className="brand-lockup">
-          <div className="brand-mark">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <strong>Docu Search</strong>
-            <p>Admin workspace</p>
-          </div>
-        </div>
-
-        <nav className="section-tabs" aria-label="Application sections">
+    <main
+      className={[
+        "app-shell",
+        "admin-blueprint-shell",
+        isAdminSidebarOpen ? "" : "sidebar-collapsed",
+      ].filter(Boolean).join(" ")}
+    >
+      <WorkspaceSidebar
+        className={`app-sidebar ${isAdminSidebarOpen ? "open" : "closed"}`}
+        footer={
+          <section className="sidebar-status">
+            <div>
+              <span className={`status-dot ${health?.status ?? "degraded"}`} />
+              <span>{health?.status ?? "connecting"}</span>
+            </div>
+            <div>
+              <Database size={15} />
+              <span>{documents ? `${documents.total} documents` : "Loading index"}</span>
+            </div>
+          </section>
+        }
+        isOpen={isAdminSidebarOpen}
+        onToggle={() => setAdminSidebarOpen((current) => !current)}
+        subtitle="Admin workspace"
+      >
+        <nav className="workspace-sidebar-nav" aria-label="Application sections">
           {chatNavigation && ChatIcon && (
-            <NavLink
-              className={({ isActive }) => (isActive ? "active" : "")}
+            <WorkspaceSidebarItem
+              icon={<ChatIcon size={17} />}
+              label={chatNavigation.label}
               to={chatNavigation.to}
-            >
-              <ChatIcon size={18} />
-              <span>{chatNavigation.label}</span>
-            </NavLink>
+            />
           )}
 
-          <p className="nav-group-label">Administration</p>
-          {adminNavigation.map((item) => (
-            <NavLink
-              className={({ isActive }) => (isActive ? "active" : "")}
-              key={item.to}
-              to={item.to}
-            >
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          <p className="workspace-sidebar-label">Administration</p>
+          {adminNavigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <WorkspaceSidebarItem
+                icon={<Icon size={17} />}
+                key={item.to}
+                label={item.label}
+                to={item.to}
+              />
+            );
+          })}
         </nav>
-
-        <section className="sidebar-status">
-          <div>
-            <span className={`status-dot ${health?.status ?? "degraded"}`} />
-            <span>{health?.status ?? "connecting"}</span>
-          </div>
-          <div>
-            <Database size={15} />
-            <span>{documents ? `${documents.total} documents` : "Loading index"}</span>
-          </div>
-        </section>
-      </aside>
+      </WorkspaceSidebar>
 
       <section className="app-main">
         <header className="topbar">
@@ -96,7 +99,7 @@ export function AppShell({
   );
 }
 
-function ThemeToggle({ compact = false }: { compact?: boolean }) {
+function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const nextTheme = theme === "dark" ? "light" : "dark";
   const Icon = theme === "dark" ? Sun : Moon;
@@ -104,13 +107,13 @@ function ThemeToggle({ compact = false }: { compact?: boolean }) {
   return (
     <button
       aria-label={`Switch to ${nextTheme} mode`}
-      className={compact ? "theme-toggle chat-theme-toggle" : "theme-toggle"}
+      className="theme-toggle"
       onClick={toggleTheme}
       title={`Switch to ${nextTheme} mode`}
       type="button"
     >
       <Icon size={17} />
-      {!compact && <span>{theme === "dark" ? "Light" : "Dark"}</span>}
+      <span>{theme === "dark" ? "Light" : "Dark"}</span>
     </button>
   );
 }

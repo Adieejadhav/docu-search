@@ -4,7 +4,6 @@ from app.schemas.admin import (
     AdminOverviewHealth,
     AdminOverviewIngestionJobs,
     AdminOverviewIndexStats,
-    AdminOverviewQuality,
     AdminOverviewQueryCounts,
     AdminOverviewRecentJob,
     AdminOverviewRecentTrace,
@@ -28,11 +27,6 @@ from app.schemas.documents import (
     DocumentDeleteResponse,
     DocumentListResponse,
     DocumentSummary,
-)
-from app.schemas.evaluation import (
-    EvaluationRunHistoryResponse,
-    EvaluationRunRecordDetail,
-    EvaluationRunRecordSummary,
 )
 from app.schemas.health import HealthResponse, HealthServiceStatus
 from app.schemas.ingestion import (
@@ -62,7 +56,6 @@ __all__ = [
     "AdminOverviewHealth",
     "AdminOverviewIngestionJobs",
     "AdminOverviewIndexStats",
-    "AdminOverviewQuality",
     "AdminOverviewQueryCounts",
     "AdminOverviewRecentJob",
     "AdminOverviewRecentTrace",
@@ -84,9 +77,6 @@ __all__ = [
     "DocumentDeleteResponse",
     "DocumentListResponse",
     "DocumentSummary",
-    "EvaluationRunHistoryResponse",
-    "EvaluationRunRecordDetail",
-    "EvaluationRunRecordSummary",
     "HealthResponse",
     "HealthServiceStatus",
     "IngestionJobCreateResponse",

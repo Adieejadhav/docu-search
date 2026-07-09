@@ -110,12 +110,6 @@ def get_chat_store():
     return ChatStore(database_url=get_database_url())
 
 
-def get_evaluation_history_store():
-    from app.evaluation.history import EvaluationHistoryStore
-
-    return EvaluationHistoryStore(database_url=get_database_url())
-
-
 @lru_cache(maxsize=1)
 def get_llm_client() -> OllamaChatClient:
     load_environment()

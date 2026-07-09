@@ -10,7 +10,6 @@ from app.api.dependencies import (
     get_chat_store,
     get_chunk_index,
     get_database_url,
-    get_evaluation_history_store,
     get_ingestion_job_service,
     get_pipeline_node_tester,
     get_rag_trace_store,
@@ -187,38 +186,12 @@ def test_pipeline_node_can_be_tested_with_uploaded_file():
     assert fake_tester.stages == ["parse"]
 
 
-def test_evaluation_cases_can_be_listed():
+def test_removed_evaluation_routes_return_not_found():
     client = TestClient(create_app())
 
-    response = client.get("/admin/evaluation/cases")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload[0]["id"] == "satellite-mode-exception"
-    assert "question" in payload[0]
-
-
-def test_evaluation_run_returns_case_results():
-    app = create_app()
-    app.dependency_overrides[get_chunk_index] = lambda: _FakeIndex()
-    app.dependency_overrides[get_rag_answerer] = lambda: _FakeAnswerer()
-    app.dependency_overrides[get_evaluation_history_store] = lambda: _FakeEvaluationHistoryStore()
-    client = TestClient(app)
-
-    response = client.post(
-        "/admin/evaluation/run",
-        json={
-            "top_k": 1,
-            "include_answers": True,
-            "case_ids": ["satellite-mode-exception"],
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["summary"]["total_cases"] == 1
-    assert payload["results"][0]["case_id"] == "satellite-mode-exception"
-    assert payload["results"][0]["contexts"][0]["file_name"] == "09_aquila_nested_corpus.json"
+    assert client.get("/admin/evaluation/cases").status_code == 404
+    assert client.get("/admin/evaluation/runs").status_code == 404
+    assert client.post("/admin/evaluation/run", json={}).status_code == 404
 
 
 class _FakeIndex:
@@ -372,11 +345,6 @@ class _FakeChatStore:
             session=self.session,
             messages=self.messages,
         )
-
-
-class _FakeEvaluationHistoryStore:
-    def record_run(self, **_):
-        return None
 
 
 class _FakeIngestionJobStore:

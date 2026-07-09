@@ -157,11 +157,6 @@ export interface AdminOverviewRisk {
   reasons: string[];
 }
 
-export interface AdminOverviewQuality {
-  status: "not_measured";
-  score_percent: number | null;
-}
-
 export interface AdminOverviewRecentTrace {
   id: string;
   query: string;
@@ -194,7 +189,6 @@ export interface AdminOverviewResponse {
   queries: AdminOverviewQueryCounts;
   ingestion_jobs: AdminOverviewIngestionJobs;
   risk: AdminOverviewRisk;
-  quality: AdminOverviewQuality;
   recent_traces: AdminOverviewRecentTrace[];
   recent_jobs: AdminOverviewRecentJob[];
 }
@@ -252,93 +246,6 @@ export interface CreateIngestionJobOptions {
   clear_index: boolean;
   replace: boolean;
   continue_on_error: boolean;
-}
-
-export interface EvaluationCase {
-  id: string;
-  question: string;
-  expected_answer_terms: string[];
-  expected_context_terms: string[];
-  expected_source_files: string[];
-  tags: string[];
-}
-
-export interface EvaluationRunRequest {
-  top_k: number;
-  include_answers: boolean;
-  case_ids?: string[];
-}
-
-export interface EvaluationContext {
-  rank: number;
-  score: number;
-  file_name: string | null;
-  source_refs: string[];
-  parent_path: string[];
-  text_excerpt: string;
-}
-
-export interface EvaluationCaseResult {
-  case_id: string;
-  question: string;
-  status: "passed" | "failed";
-  retrieval_passed: boolean;
-  answer_passed: boolean | null;
-  source_rank: number | null;
-  missing_context_terms: string[];
-  missing_answer_terms: string[];
-  answer: string | null;
-  llm_model: string | null;
-  retrieval_ms: number;
-  answer_ms: number | null;
-  total_ms: number;
-  contexts: EvaluationContext[];
-  citations: Record<string, unknown>[];
-}
-
-export interface EvaluationRunSummary {
-  total_cases: number;
-  passed_cases: number;
-  failed_cases: number;
-  retrieval_passed_cases: number;
-  answer_passed_cases: number | null;
-  source_hit_rate: number;
-  answer_term_pass_rate: number | null;
-  mean_retrieval_ms: number;
-  mean_answer_ms: number | null;
-  mean_total_ms: number;
-}
-
-export interface EvaluationRunResponse {
-  top_k: number;
-  include_answers: boolean;
-  summary: EvaluationRunSummary;
-  cases: EvaluationCase[];
-  results: EvaluationCaseResult[];
-}
-
-export interface EvaluationRunRecordSummary {
-  id: string;
-  top_k: number;
-  include_answers: boolean;
-  total_cases: number;
-  passed_cases: number;
-  failed_cases: number;
-  source_hit_rate: number;
-  answer_term_pass_rate: number | null;
-  mean_total_ms: number;
-  created_at: string;
-}
-
-export interface EvaluationRunRecordDetail extends EvaluationRunRecordSummary {
-  response: EvaluationRunResponse;
-}
-
-export interface EvaluationRunHistoryResponse {
-  total: number;
-  limit: number;
-  offset: number;
-  runs: EvaluationRunRecordSummary[];
 }
 
 export interface RagTraceSummary {

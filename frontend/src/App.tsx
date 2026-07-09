@@ -6,15 +6,13 @@ import { AppShell } from "./app/AppShell";
 import { ThemeProvider } from "./app/ThemeContext";
 import { AdminLayout } from "./features/admin/AdminLayout";
 import { AdminDocumentDetailPage } from "./features/admin/pages/AdminDocumentDetailPage";
-import { AdminEvaluationPage } from "./features/admin/pages/AdminEvaluationPage";
 import { AdminIndexPage } from "./features/admin/pages/AdminIndexPage";
 import { AdminIngestionJobDetailPage } from "./features/admin/pages/AdminIngestionJobDetailPage";
 import { AdminOverviewPage } from "./features/admin/pages/AdminOverviewPage";
 import { AdminPipelinePage } from "./features/admin/pages/AdminPipelinePage";
-import { AdminPlaygroundPage } from "./features/admin/pages/AdminPlaygroundPage";
+import { AdminTraceDetailPage } from "./features/admin/pages/AdminTraceDetailPage";
 import { AdminTracesPage } from "./features/admin/pages/AdminTracesPage";
 import { AdminVectorIndexPage } from "./features/admin/pages/AdminVectorIndexPage";
-import { AdminWorkbenchProvider } from "./features/admin/AdminWorkbenchContext";
 import { ChatPanel } from "./features/chat/ChatPanel";
 
 const AdminTestBenchPage = lazy(() =>
@@ -48,11 +46,7 @@ function AppRoutes() {
         <Route path="/chat" element={<ChatPanel error={error} onError={setError} />} />
         <Route
           path="/admin"
-          element={
-            <AdminWorkbenchProvider>
-              <AdminLayout />
-            </AdminWorkbenchProvider>
-          }
+          element={<AdminLayout />}
         >
           <Route index element={<Navigate to="/admin/overview" replace />} />
           <Route path="overview" element={<AdminOverviewPage />} />
@@ -62,9 +56,8 @@ function AppRoutes() {
           <Route path="pipeline" element={<AdminPipelinePage />} />
           <Route path="pipeline/:jobId" element={<AdminIngestionJobDetailPage />} />
           <Route path="vector-indexes" element={<AdminVectorIndexPage />} />
-          <Route path="playground" element={<AdminPlaygroundPage />} />
           <Route path="traces" element={<AdminTracesPage />} />
-          <Route path="evaluations" element={<AdminEvaluationPage />} />
+          <Route path="traces/:traceId" element={<AdminTraceDetailPage />} />
           <Route
             path="test-bench"
             element={
@@ -73,7 +66,6 @@ function AppRoutes() {
               </Suspense>
             }
           />
-          <Route path="evaluation" element={<Navigate to="/admin/evaluations" replace />} />
           <Route path="index" element={<Navigate to="/admin/vector-indexes" replace />} />
           <Route path="ingestion" element={<Navigate to="/admin/pipeline" replace />} />
           <Route path="ops" element={<Navigate to="/admin/pipeline" replace />} />

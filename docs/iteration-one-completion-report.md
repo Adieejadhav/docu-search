@@ -12,16 +12,15 @@ Iteration one is functionally complete for a local production-style RAG workflow
 - Normalize parsed content into a consistent document/block schema.
 - Create structure-aware parent-child chunks.
 - Create local embeddings using `BAAI/bge-small-en-v1.5`.
-- Store documents, chunks, embeddings, ingestion jobs, traces, chat sessions, and evaluation runs in PostgreSQL with pgvector.
+- Store documents, chunks, embeddings, ingestion jobs, traces, and chat sessions in PostgreSQL with pgvector.
 - Retrieve relevant chunks with hybrid vector and lexical search.
 - Generate grounded RAG answers using Ollama with `gpt-oss:120b-cloud`.
 - Expose the workflow through CLI commands, FastAPI endpoints, and a React admin/chat frontend.
-- Run evaluation cases and store evaluation history.
 - Inspect documents, chunks, traces, metrics, ingestion jobs, and index state from the admin UI.
 
 Latest verification:
 
-- Backend tests: `62 passed, 1 warning` using `backend\.venv\Scripts\python.exe -m pytest`.
+- Backend tests: `63 passed, 1 warning` using `backend\.venv\Scripts\python.exe -m pytest`.
 - Frontend production build: passed using `npm run build`.
 - Frontend dev server script verified on `http://127.0.0.1:5174/`.
 
@@ -47,7 +46,7 @@ The project is organized into five main runtime layers:
 
 5. Frontend layer
 
-   Responsible for the user chat experience and the admin workbench used for ingestion, index inspection, evaluation, traces, metrics, and testing.
+   Responsible for the user chat experience and the admin workbench used for ingestion, index inspection, traces, metrics, and testing.
 
 ## Source Folder Structure
 
@@ -75,7 +74,6 @@ docu-search/
 |   |   |   |   |-- admin.py
 |   |   |   |   |-- chat.py
 |   |   |   |   |-- documents.py
-|   |   |   |   |-- evaluation.py
 |   |   |   |   |-- health.py
 |   |   |   |   |-- ingestion.py
 |   |   |   |   |-- search.py
@@ -109,12 +107,6 @@ docu-search/
 |   |   |   |-- base.py
 |   |   |   |-- local_sentence_transformer.py
 |   |   |   |-- pipeline.py
-|   |   |-- evaluation/
-|   |   |   |-- __init__.py
-|   |   |   |-- dataset.py
-|   |   |   |-- history.py
-|   |   |   |-- runner.py
-|   |   |   |-- schema.py
 |   |   |-- indexing/
 |   |   |   |-- __init__.py
 |   |   |   |-- pgvector_index.py
@@ -184,8 +176,6 @@ docu-search/
 |   |   |-- core/
 |   |   |   |-- test_clear_database_cli.py
 |   |   |   |-- test_env.py
-|   |   |-- evaluation/
-|   |   |   |-- test_evaluation_runner.py
 |   |   |-- ingestion/
 |   |   |   |-- test_additional_parsers.py
 |   |   |   |-- test_block_validator.py
@@ -206,7 +196,6 @@ docu-search/
 |   |-- production-retrieval-setup.md
 |   |-- parser-next-iteration/
 |   |   |-- README.md
-|-- evaluation/
 |-- frontend/
 |   |-- .env.example
 |   |-- index.html
@@ -242,10 +231,8 @@ docu-search/
 |   |   |   |-- admin/
 |   |   |   |   |-- AdminLayout.tsx
 |   |   |   |   |-- AdminPrimitives.tsx
-|   |   |   |   |-- AdminWorkbenchContext.tsx
 |   |   |   |   |-- improvements.ts
 |   |   |   |   |-- pages/
-|   |   |   |   |   |-- AdminEvaluationPage.tsx
 |   |   |   |   |   |-- AdminIndexPage.tsx
 |   |   |   |   |   |-- AdminIngestionPage.tsx
 |   |   |   |   |   |-- AdminOpsPage.tsx
@@ -318,10 +305,6 @@ Protected admin routes:
 - `POST /admin/ingestion/jobs`
 - `GET /admin/ingestion/jobs`
 - `GET /admin/ingestion/jobs/{job_id}`
-- `GET /admin/evaluation/cases`
-- `POST /admin/evaluation/run`
-- `GET /admin/evaluation/runs`
-- `GET /admin/evaluation/runs/{run_id}`
 - `GET /admin/traces`
 - `GET /admin/traces/{trace_id}`
 - `DELETE /admin/traces`
@@ -425,22 +408,6 @@ Chat persistence:
 - Trace IDs.
 - Latency metadata.
 
-### `backend/app/evaluation`
-
-Evaluation layer:
-
-- `dataset.py`: built-in evaluation cases.
-- `runner.py`: executes retrieval and optional answer checks.
-- `schema.py`: typed evaluation request and response models.
-- `history.py`: persists evaluation runs.
-
-Evaluation checks include:
-
-- Expected source hit.
-- Required answer/context terms.
-- Latency measurements.
-- Pass/fail summaries.
-
 ### `backend/app/cli`
 
 Operational command-line tools:
@@ -460,6 +427,7 @@ Operational command-line tools:
 SQL migration files. Iteration one has:
 
 - `001_pgvector_chunk_index.sql`
+- `002_remove_evaluation_feature.sql`
 
 It creates:
 
@@ -473,7 +441,6 @@ It creates:
 - `rag_traces`
 - `chat_sessions`
 - `chat_messages`
-- `evaluation_runs`
 
 ## Frontend Folders
 
@@ -512,7 +479,6 @@ Admin workbench:
 
 - `AdminLayout.tsx`: admin layout.
 - `AdminPrimitives.tsx`: admin UI primitives.
-- `AdminWorkbenchContext.tsx`: shared admin data.
 - `improvements.ts`: improvement-area content.
 - `pages/`: admin pages.
 
@@ -521,7 +487,6 @@ Current admin pages:
 - Overview
 - Ingestion
 - Index
-- Evaluation
 - Traces
 - Operations
 - Test bench
@@ -557,7 +522,6 @@ Important tables:
 - `rag_traces`: query, answer, context, citations, timings.
 - `chat_sessions`: chat conversation records.
 - `chat_messages`: persisted chat messages.
-- `evaluation_runs`: stored evaluation history.
 
 The embedding vector is stored directly in PostgreSQL using:
 
@@ -773,16 +737,6 @@ The system retrieved the relevant policy context and generated the correct answe
 - Source metadata on assistant responses.
 - Trace linking.
 
-### Evaluation
-
-- Built-in evaluation dataset.
-- Evaluation run endpoint.
-- Evaluation history persistence.
-- Source hit checks.
-- Required term checks.
-- Latency metrics.
-- Admin evaluation UI.
-
 ### Frontend
 
 - Modern React/Vite app.
@@ -790,7 +744,6 @@ The system retrieved the relevant policy context and generated the correct answe
 - Admin workbench.
 - Ingestion upload and job monitoring.
 - Index document/chunk management.
-- Evaluation page.
 - Trace inspection.
 - Operations/metrics page.
 - Test bench.
@@ -814,7 +767,6 @@ These are not blockers for iteration one, but they are the logical next work ite
 - Authentication should become real user/session auth instead of optional static admin token.
 - In-memory rate limiting should move to Redis or database-backed rate limiting for multi-process deployment.
 - Ingestion worker should become a proper service/process with retry policy and observability.
-- Evaluation should support uploaded custom datasets.
 - RAG quality metrics should include precision/recall style retrieval metrics against larger gold datasets.
 - Frontend should add stronger loading, retry, and partial-failure states in more pages.
 - API should get OpenAPI examples and stricter request validation descriptions.
@@ -823,6 +775,6 @@ These are not blockers for iteration one, but they are the logical next work ite
 
 ## First Iteration Conclusion
 
-The first iteration can be marked complete as a local production-grade baseline. The system is not just a parser or a toy retrieval demo now. It has a complete flow from document ingestion to grounded answers, with pgvector persistence, admin visibility, evaluation, traces, chat persistence, and frontend workflows.
+The first iteration can be marked complete as a local production-grade baseline. The system is not just a parser or a toy retrieval demo now. It has a complete flow from document ingestion to grounded answers, with pgvector persistence, admin visibility, traces, chat persistence, and frontend workflows.
 
 The next phase should focus on hardening, quality measurement, deployment readiness, and deeper UI/UX polish rather than adding more core RAG plumbing.

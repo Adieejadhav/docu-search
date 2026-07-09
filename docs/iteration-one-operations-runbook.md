@@ -95,7 +95,6 @@ Invoke-RestMethod http://127.0.0.1:8001/health
 ## Admin Workflows
 
 - Ingestion: `/admin/ingestion`
-- Evaluation history: `/admin/evaluation`
 - Trace history: `/admin/traces`
 - Document inventory, chunk inspection, delete, re-index: `/admin/index`
 - Metrics and clear controls: `/admin/ops`
@@ -121,7 +120,7 @@ Get-Content storage\backups\docusearch.sql | docker exec -i docu-search-postgres
 - API background tasks are suitable for this local production-style iteration.
   For multi-worker deployment, move ingestion execution to a separate worker
   process backed by a durable queue.
-- RAG traces and evaluation runs are intentionally persisted for inspection.
+- RAG traces are intentionally persisted for inspection.
   Clear old traces from `/admin/traces` when needed.
 - Chat uses streaming responses from `/chat/ask/stream` and persists the final
   user/assistant messages after generation completes.
