@@ -29,7 +29,6 @@ export function AdminOverviewPage() {
   const health = overview?.health;
   const index = overview?.index;
   const risk = overview?.risk;
-  const quality = overview?.quality;
   const jobs = overview?.ingestion_jobs;
 
   return (
@@ -49,13 +48,6 @@ export function AdminOverviewPage() {
           description={`${formatMetric(index?.vector_count)} / ${formatMetric(index?.child_chunk_count)} vectors indexed`}
           status={indexStatus(index?.readiness_percent, index?.child_chunk_count)}
           tone="info"
-        />
-        <OverviewHeroCard
-          label="Answer Quality"
-          value={qualityValue(quality?.score_percent)}
-          description="No evaluation score recorded"
-          status="Pending"
-          tone="violet"
         />
         <OverviewHeroCard
           label="Production Risk"
@@ -262,10 +254,6 @@ function formatDuration(value: number | null | undefined): string {
     return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1)}s`;
   }
   return `${Math.round(value)}ms`;
-}
-
-function qualityValue(scorePercent: number | null | undefined): string {
-  return typeof scorePercent === "number" ? formatPercent(scorePercent) : "Not measured";
 }
 
 function indexStatus(readinessPercent: number | null | undefined, childChunkCount: number | null | undefined): string {

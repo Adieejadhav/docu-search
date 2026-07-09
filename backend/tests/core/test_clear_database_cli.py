@@ -17,3 +17,14 @@ def test_default_migration_path_points_to_pgvector_migration():
 
     assert migration_path.name == "001_pgvector_chunk_index.sql"
     assert migration_path.is_file()
+
+
+def test_evaluation_removal_migration_exists():
+    migration_path = clear_database.default_migration_path().with_name(
+        "002_remove_evaluation_feature.sql"
+    )
+
+    assert migration_path.is_file()
+    assert "DROP TABLE IF EXISTS evaluation_runs" in migration_path.read_text(
+        encoding="utf-8"
+    )

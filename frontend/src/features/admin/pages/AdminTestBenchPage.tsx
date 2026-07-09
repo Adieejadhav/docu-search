@@ -119,52 +119,52 @@ const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
 
 const NODE_TONES: Record<IngestionNodeId | ActionNodeId, NodeTone> = {
   source: {
-    edge: "#0f766e",
-    icon: "bg-teal-600 text-white",
-    ring: "border-teal-500 shadow-[0_0_0_4px_rgba(20,184,166,0.13)]",
-    soft: "bg-teal-50 text-teal-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   discover: {
-    edge: "#7c3aed",
-    icon: "bg-violet-600 text-white",
-    ring: "border-violet-500 shadow-[0_0_0_4px_rgba(139,92,246,0.13)]",
-    soft: "bg-violet-50 text-violet-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   parse: {
-    edge: "#d97706",
-    icon: "bg-amber-500 text-white",
-    ring: "border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.13)]",
-    soft: "bg-amber-50 text-amber-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   chunk: {
-    edge: "#0284c7",
-    icon: "bg-sky-600 text-white",
-    ring: "border-sky-500 shadow-[0_0_0_4px_rgba(14,165,233,0.13)]",
-    soft: "bg-sky-50 text-sky-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   index: {
-    edge: "#4f46e5",
-    icon: "bg-indigo-600 text-white",
-    ring: "border-indigo-500 shadow-[0_0_0_4px_rgba(99,102,241,0.13)]",
-    soft: "bg-indigo-50 text-indigo-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   vector_store: {
-    edge: "#047857",
-    icon: "bg-emerald-600 text-white",
-    ring: "border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.13)]",
-    soft: "bg-emerald-50 text-emerald-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   retrieve: {
-    edge: "#e11d48",
-    icon: "bg-rose-600 text-white",
-    ring: "border-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.13)]",
-    soft: "bg-rose-50 text-rose-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
   generate: {
-    edge: "#059669",
-    icon: "bg-emerald-600 text-white",
-    ring: "border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.13)]",
-    soft: "bg-emerald-50 text-emerald-800",
+    edge: "var(--test-bench-edge-active)",
+    icon: "test-bench-node-icon",
+    ring: "test-bench-node-active",
+    soft: "test-bench-node-step",
   },
 };
 
@@ -462,7 +462,10 @@ export function AdminTestBenchPage() {
         const target = edge.target as IngestionNodeId;
         const active = snapshots[source].status === "running" || snapshots[target].status === "running";
         const completed = snapshots[source].status === "completed";
-        const stroke = active || completed ? NODE_TONES[target].edge : "#cbd5e1";
+        const stroke =
+          active || completed
+            ? NODE_TONES[target].edge
+            : "var(--test-bench-edge-idle)";
         return {
           ...edge,
           animated: active,
@@ -482,7 +485,7 @@ export function AdminTestBenchPage() {
       : undefined;
 
   return (
-    <section className="space-y-4">
+    <section className="test-bench-page space-y-4">
       <section className="relative overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <div>
@@ -556,7 +559,12 @@ export function AdminTestBenchPage() {
             panOnDrag
             zoomOnScroll={false}
           >
-            <Background color="#d8e1ec" gap={22} size={1.1} variant={BackgroundVariant.Dots} />
+            <Background
+              color="var(--test-bench-grid)"
+              gap={22}
+              size={1.1}
+              variant={BackgroundVariant.Dots}
+            />
           </ReactFlow>
         </div>
       </section>
@@ -665,7 +673,7 @@ function PipelineNodeCard({ data, selected }: NodeProps<PipelineFlowNode>) {
         title={data.description}
       >
         <Handle
-          className={`!size-3 !border-[3px] !border-white ${data.icon === "source" ? "!bg-teal-600" : "!bg-slate-400"}`}
+          className="!size-3 !border-[3px] test-bench-node-handle"
           position={Position.Left}
           type="target"
         />
@@ -688,7 +696,7 @@ function PipelineNodeCard({ data, selected }: NodeProps<PipelineFlowNode>) {
             : statusLabel(data.status)}
         </span>
         <Handle
-          className={`!size-3 !border-[3px] !border-white ${data.icon === "vector_store" ? "!bg-emerald-600" : "!bg-slate-400"}`}
+          className="!size-3 !border-[3px] test-bench-node-handle"
           position={Position.Right}
           type="source"
         />
@@ -982,7 +990,7 @@ function OutputTerminal({
         </div>
         <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
           {(actionStatus === "running" || snapshot?.status === "running") && (
-            <LoaderCircle className="animate-spin text-sky-400" size={12} />
+            <LoaderCircle className="animate-spin text-amber-400" size={12} />
           )}
           {actionResult
             ? `completed in ${formatMs(actionResult.durationMs)}`
@@ -1016,7 +1024,7 @@ function OutputTerminal({
             {events.map((event, index) => (
               <div className="grid grid-cols-[72px_76px_minmax(0,1fr)_auto] gap-2" key={`${event.timestamp}-${event.stage}-${index}`}>
                 <span className="text-slate-600">{formatEventTime(event.timestamp)}</span>
-                <span className={event.status === "failed" ? "text-rose-400" : event.status === "started" ? "text-sky-400" : "text-emerald-400"}>
+                <span className={event.status === "failed" ? "text-rose-400" : event.status === "started" ? "text-amber-400" : "text-emerald-400"}>
                   {event.status.padEnd(9, " ")}
                 </span>
                 <span className="break-words text-slate-300">
@@ -1128,8 +1136,8 @@ function NodeStateGlyph({ status }: { status: NodeStatus }) {
 
 function JobStatusBadge({ status }: { status: IngestionJob["status"] }) {
   const classes = {
-    queued: "bg-blue-50 text-blue-700",
-    running: "bg-sky-50 text-sky-700",
+    queued: "bg-slate-100 text-slate-700",
+    running: "bg-amber-50 text-amber-700",
     completed: "bg-emerald-50 text-emerald-700",
     failed: "bg-rose-50 text-rose-700",
   };

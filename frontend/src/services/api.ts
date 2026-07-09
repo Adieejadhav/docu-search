@@ -14,10 +14,6 @@ import type {
   DocumentChunkListResponse,
   DocumentDeleteResponse,
   DocumentListResponse,
-  EvaluationCase,
-  EvaluationRunHistoryResponse,
-  EvaluationRunRequest,
-  EvaluationRunResponse,
   HealthResponse,
   IngestionJob,
   IngestionJobCreateResponse,
@@ -229,23 +225,6 @@ export async function testPipelineNode(
     method: "POST",
     body: formData,
   });
-}
-
-export async function listEvaluationCases(): Promise<EvaluationCase[]> {
-  return request<EvaluationCase[]>("/admin/evaluation/cases");
-}
-
-export async function runEvaluation(
-  payload: EvaluationRunRequest,
-): Promise<EvaluationRunResponse> {
-  return request<EvaluationRunResponse>("/admin/evaluation/run", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function listEvaluationRuns(): Promise<EvaluationRunHistoryResponse> {
-  return request<EvaluationRunHistoryResponse>("/admin/evaluation/runs");
 }
 
 export async function listRagTraces(options?: {

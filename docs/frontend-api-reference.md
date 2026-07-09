@@ -277,7 +277,7 @@ answer. The admin test bench uses it to debug search quality.
 Frontend caller:
 
 - `searchDocuments(payload)`
-- Used by `AdminWorkbenchContext`, `AdminTestBenchPage`.
+- Used by `AdminTestBenchPage`.
 
 Auth:
 
@@ -327,7 +327,7 @@ and returns the grounded answer plus citations.
 Frontend caller:
 
 - `askDocuments(payload)`
-- Used by `AdminWorkbenchContext`, `AdminTestBenchPage`.
+- Used by `AdminTestBenchPage`.
 
 Auth:
 
@@ -850,12 +850,12 @@ Backend involved:
 Purpose:
 
 Clears the full index: documents, chunks, and embeddings. It does not delete
-source files, chat history, traces, or evaluation runs.
+source files, chat history, or traces.
 
 Frontend caller:
 
 - `clearIndex()`
-- Used by `AdminWorkbenchContext`, `AdminOpsPage`.
+- Used by `AdminVectorIndexPage`.
 
 Auth:
 
@@ -1120,182 +1120,7 @@ Backend involved:
 - Production layers reused: file validation, parser/normalizer, chunker, embedding provider, pgvector stats
 - DB mutation: none
 
-### 20. GET `/admin/evaluation/cases`
-
-Purpose:
-
-Returns built-in RAG evaluation cases for the admin evaluation page.
-
-Frontend caller:
-
-- `listEvaluationCases()`
-- Used by `AdminEvaluationPage`.
-
-Auth:
-
-- Admin route.
-
-Request:
-
-```http
-GET /admin/evaluation/cases
-```
-
-Response:
-
-```json
-[
-  {
-    "id": "satellite-mode-exception",
-    "question": "Which policy mentions the 14-day satellite-mode exception?",
-    "expected_answer_terms": ["P-004", "Password rotation exception", "14 days"],
-    "expected_context_terms": ["P-004", "14 days", "satellite mode"],
-    "expected_source_files": ["02_aquila_product_knowledge_base.md"],
-    "tags": ["policy", "exact-value", "source"]
-  }
-]
-```
-
-Backend involved:
-
-- Route: `backend/app/api/routes/evaluation.py::list_evaluation_cases`
-- Source: `backend/app/evaluation/dataset.py::BUILTIN_EVALUATION_CASES`
-- DB touched: none
-
-### 21. POST `/admin/evaluation/run`
-
-Purpose:
-
-Runs selected built-in evaluation cases against the current index, optionally
-generates answers, calculates pass/fail metrics, and stores the evaluation run.
-
-Frontend caller:
-
-- `runEvaluation(payload)`
-- Used by `AdminEvaluationPage`.
-
-Auth:
-
-- Admin route.
-
-Request:
-
-```json
-{
-  "top_k": 5,
-  "include_answers": true,
-  "case_ids": ["satellite-mode-exception"]
-}
-```
-
-Validation:
-
-- `top_k`: default 5, min 1, max 20
-- `include_answers`: default true
-- `case_ids`: optional. If omitted, all built-in cases run.
-
-Response:
-
-```json
-{
-  "top_k": 5,
-  "include_answers": true,
-  "summary": {
-    "total_cases": 1,
-    "passed_cases": 1,
-    "failed_cases": 0,
-    "retrieval_passed_cases": 1,
-    "answer_passed_cases": 1,
-    "source_hit_rate": 1.0,
-    "answer_term_pass_rate": 1.0,
-    "mean_retrieval_ms": 25.0,
-    "mean_answer_ms": 1200.0,
-    "mean_total_ms": 1225.0
-  },
-  "cases": ["EvaluationCase[]"],
-  "results": [
-    {
-      "case_id": "satellite-mode-exception",
-      "question": "Question text",
-      "status": "passed",
-      "retrieval_passed": true,
-      "answer_passed": true,
-      "source_rank": 1,
-      "missing_context_terms": [],
-      "missing_answer_terms": [],
-      "answer": "Answer text",
-      "llm_model": "ollama-gpt-oss:120b-cloud",
-      "retrieval_ms": 25.0,
-      "answer_ms": 1200.0,
-      "total_ms": 1225.0,
-      "contexts": [],
-      "citations": []
-    }
-  ]
-}
-```
-
-Backend involved:
-
-- Route: `backend/app/api/routes/evaluation.py::run_evaluation`
-- Dependencies: `get_chunk_index`, `get_rag_answerer`, `get_evaluation_history_store`
-- Services: `EvaluationRunner.run`, `PgVectorChunkIndex.retrieve`, optional `RagAnswerer.answer`, `EvaluationHistoryStore.record_run`
-- Env: database, embedding, hybrid, and optionally Ollama env when `include_answers=true`
-- DB touched: retrieval tables and `evaluation_runs`
-
-### 22. GET `/admin/evaluation/runs`
-
-Purpose:
-
-Lists saved evaluation run summaries.
-
-Frontend caller:
-
-- `listEvaluationRuns()`
-- Used by `AdminEvaluationPage`.
-
-Auth:
-
-- Admin route.
-
-Request:
-
-```http
-GET /admin/evaluation/runs?limit=20&offset=0
-```
-
-Response:
-
-```json
-{
-  "total": 1,
-  "limit": 20,
-  "offset": 0,
-  "runs": [
-    {
-      "id": "run-id",
-      "top_k": 5,
-      "include_answers": true,
-      "total_cases": 8,
-      "passed_cases": 8,
-      "failed_cases": 0,
-      "source_hit_rate": 1.0,
-      "answer_term_pass_rate": 1.0,
-      "mean_total_ms": 1234.5,
-      "created_at": "2026-06-19T10:00:00Z"
-    }
-  ]
-}
-```
-
-Backend involved:
-
-- Route: `backend/app/api/routes/evaluation.py::list_evaluation_runs`
-- Dependency: `get_evaluation_history_store`
-- Service: `EvaluationHistoryStore.list_runs`
-- DB touched: `evaluation_runs`
-
-### 23. GET `/admin/traces`
+### 20. GET `/admin/traces`
 
 Purpose:
 
@@ -1357,7 +1182,7 @@ Backend involved:
 - Service: `RagTraceStore.list_traces`
 - DB touched: `rag_traces`
 
-### 24. GET `/admin/traces/{trace_id}`
+### 21. GET `/admin/traces/{trace_id}`
 
 Purpose:
 
@@ -1409,12 +1234,12 @@ Backend involved:
 - Service: `RagTraceStore.get_trace`
 - DB touched: `rag_traces`
 
-### 25. DELETE `/admin/traces`
+### 22. DELETE `/admin/traces`
 
 Purpose:
 
 Clears stored RAG trace history. It does not delete documents, chunks,
-embeddings, chat sessions, or evaluation runs.
+embeddings, or chat sessions.
 
 Frontend caller:
 
@@ -1502,47 +1327,6 @@ Backend involved:
 - Env: `ADMIN_API_TOKEN`
 - DB touched: none
 
-### GET `/admin/evaluation/runs/{run_id}`
-
-Purpose:
-
-Fetches a full saved evaluation run, including the stored response payload.
-
-Auth:
-
-- Admin route.
-
-Request:
-
-```http
-GET /admin/evaluation/runs/{run_id}
-```
-
-Response:
-
-```json
-{
-  "id": "run-id",
-  "top_k": 5,
-  "include_answers": true,
-  "total_cases": 8,
-  "passed_cases": 8,
-  "failed_cases": 0,
-  "source_hit_rate": 1.0,
-  "answer_term_pass_rate": 1.0,
-  "mean_total_ms": 1234.5,
-  "created_at": "2026-06-19T10:00:00Z",
-  "response": {}
-}
-```
-
-Backend involved:
-
-- Route: `backend/app/api/routes/evaluation.py::get_evaluation_run`
-- Dependency: `get_evaluation_history_store`
-- Service: `EvaluationHistoryStore.get_run`
-- DB touched: `evaluation_runs`
-
 ## Endpoint To Frontend Page Map
 
 ```text
@@ -1579,11 +1363,6 @@ Admin ingestion:
   GET /admin/ingestion/jobs
   GET /admin/ingestion/jobs/{job_id}
 
-Admin evaluation:
-  GET /admin/evaluation/cases
-  POST /admin/evaluation/run
-  GET /admin/evaluation/runs
-
 Admin traces:
   GET /admin/traces
   GET /admin/traces/{trace_id}
@@ -1619,12 +1398,6 @@ Ingestion routes
   -> parent-child chunker
   -> PgVectorChunkIndex.index_documents
 
-Evaluation routes
-  -> EvaluationRunner
-  -> PgVectorChunkIndex.retrieve
-  -> optional RagAnswerer
-  -> EvaluationHistoryStore
-
 Trace routes
   -> RagTraceStore
 ```
@@ -1652,7 +1425,7 @@ Retrieval/search APIs:
   HYBRID_LEXICAL_WEIGHT
   HYBRID_PHRASE_WEIGHT
 
-Ask/chat/evaluation answer APIs:
+Ask/chat answer APIs:
   OLLAMA_HOST
   OLLAMA_MODEL
   OLLAMA_TEMPERATURE

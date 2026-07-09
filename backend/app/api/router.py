@@ -7,7 +7,6 @@ from app.api.routes import (
     admin,
     chat,
     documents,
-    evaluation,
     health,
     ingestion,
     pipeline,
@@ -55,12 +54,6 @@ api_router.include_router(
     ingestion.router,
     prefix="/admin/ingestion",
     tags=["admin", "ingestion"],
-    dependencies=[Depends(require_admin)],
-)
-api_router.include_router(
-    evaluation.router,
-    prefix="/admin/evaluation",
-    tags=["admin", "evaluation"],
     dependencies=[Depends(require_admin)],
 )
 api_router.include_router(

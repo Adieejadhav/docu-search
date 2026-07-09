@@ -1,26 +1,20 @@
 import { useEffect, useState } from "react";
 import { Activity, RefreshCw, Trash2 } from "lucide-react";
-import { MarkdownAnswer } from "../../../components/MarkdownAnswer";
-import { ResultItem } from "../../../components/ResultItem";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime, messageFromError } from "../../../lib/format";
-import { clearRagTraces, getRagTrace, listRagTraces } from "../../../services/api";
-import type { RagTraceDetail, RagTraceSummary } from "../../../services/types";
-import {
-  BlueprintMetric,
-  BlueprintMetricGrid,
-  BlueprintPage,
-  BlueprintPanel,
-} from "../AdminBlueprintPrimitives";
+import { clearRagTraces, listRagTraces } from "../../../services/api";
+import type { RagTraceSummary } from "../../../services/types";
+import { BlueprintPage } from "../AdminBlueprintPrimitives";
 
 export function AdminTracesPage() {
+  const navigate = useNavigate();
   const [traces, setTraces] = useState<RagTraceSummary[]>([]);
-  const [selectedTrace, setSelectedTrace] = useState<RagTraceDetail | null>(null);
+  const [totalTraces, setTotalTraces] = useState(0);
   const [isLoading, setLoading] = useState(true);
-  const [isLoadingDetail, setLoadingDetail] = useState(false);
+  const [isClearing, setClearing] = useState(false);
   const [isClearOpen, setClearOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,13 +26,9 @@ export function AdminTracesPage() {
     setLoading(true);
     setError(null);
     try {
-      const payload = await listRagTraces();
+      const payload = await listRagTraces({ limit: 100 });
       setTraces(payload.traces);
-      if (payload.traces.length) {
-        await selectTrace(payload.traces[0].id);
-      } else {
-        setSelectedTrace(null);
-      }
+      setTotalTraces(payload.total);
     } catch (caught) {
       setError(messageFromError(caught));
     } finally {
@@ -46,19 +36,8 @@ export function AdminTracesPage() {
     }
   }
 
-  async function selectTrace(traceId: string) {
-    setLoadingDetail(true);
-    setError(null);
-    try {
-      setSelectedTrace(await getRagTrace(traceId));
-    } catch (caught) {
-      setError(messageFromError(caught));
-    } finally {
-      setLoadingDetail(false);
-    }
-  }
-
   async function confirmClear() {
+    setClearing(true);
     setError(null);
     try {
       await clearRagTraces();
@@ -66,89 +45,111 @@ export function AdminTracesPage() {
       await refreshTraces();
     } catch (caught) {
       setError(messageFromError(caught));
+    } finally {
+      setClearing(false);
     }
   }
 
+  const retrievedChunkCount = traces.reduce(
+    (total, trace) => total + trace.result_count,
+    0,
+  );
+  const averageLatency = traces.length
+    ? traces.reduce((total, trace) => total + trace.total_ms, 0) / traces.length
+    : null;
+
   return (
     <BlueprintPage>
-      <BlueprintMetricGrid>
-        <BlueprintMetric label="Traces" value={formatMetric(traces.length)} detail="loaded history" />
-        <BlueprintMetric label="Selected Results" value={formatMetric(selectedTrace?.result_count)} detail="retrieved chunks" />
-        <BlueprintMetric label="Retrieval" value={formatDuration(selectedTrace?.retrieval_ms)} detail="selected trace" />
-        <BlueprintMetric label="Answer" value={formatDuration(selectedTrace?.answer_ms)} detail="selected trace" />
-      </BlueprintMetricGrid>
+      <section className="document-summary-strip" aria-label="RAG trace summary">
+        <SummaryCard
+          detail="stored requests"
+          label="Total Traces"
+          value={formatMetric(totalTraces)}
+        />
+        <SummaryCard
+          detail="latest loaded traces"
+          label="Retrieved Chunks"
+          value={formatMetric(retrievedChunkCount)}
+        />
+        <SummaryCard
+          detail="latest loaded traces"
+          label="Average Latency"
+          value={formatDuration(averageLatency)}
+        />
+      </section>
 
-      <section className="trace-layout">
-        <BlueprintPanel
-          description="Stored RAG traces from chat, playground, and test bench requests"
-          title="Trace History"
-        >
+      <section className="ops-panel ops-panel-full">
+        <header>
+          <div>
+            <h2>Trace History</h2>
+            <p>Stored RAG requests from chat and test bench</p>
+          </div>
+        </header>
+        <div className="ops-panel-body">
           <div className="panel-toolbar">
-            <Button icon={<RefreshCw size={16} />} onClick={() => void refreshTraces()}>
-              Refresh
+            <Button
+              disabled={isLoading}
+              icon={<RefreshCw size={16} />}
+              onClick={() => void refreshTraces()}
+            >
+              {isLoading ? "Refreshing" : "Refresh"}
             </Button>
             <Button
-              disabled={!traces.length}
+              disabled={!traces.length || isClearing}
               icon={<Trash2 size={16} />}
               onClick={() => setClearOpen(true)}
               variant="danger"
             >
-              Clear
+              Clear Traces
             </Button>
           </div>
+
           {error && <div className="selection-error">{error}</div>}
           {isLoading ? (
-            <Skeleton count={5} />
-          ) : traces.length ? (
-            <div className="trace-list">
-              {traces.map((trace) => (
-                <button
-                  className={trace.id === selectedTrace?.id ? "trace-row active" : "trace-row"}
-                  key={trace.id}
-                  onClick={() => void selectTrace(trace.id)}
-                  type="button"
-                >
-                  <strong>{trace.query}</strong>
-                  <span>
-                    {formatDateTime(trace.created_at)} | {trace.total_ms.toFixed(0)}ms | {trace.result_count} sources
-                  </span>
-                </button>
-              ))}
-            </div>
+            <EmptyState icon={<Activity size={22} />}>
+              Loading trace history.
+            </EmptyState>
           ) : (
-            <EmptyState>No RAG traces recorded yet.</EmptyState>
-          )}
-        </BlueprintPanel>
-
-        <BlueprintPanel
-          description="Answer, latency, citations, and retrieved chunks for the selected trace"
-          title={selectedTrace ? selectedTrace.llm_model : "No Trace Selected"}
-        >
-          {isLoadingDetail && <Skeleton count={4} />}
-          {!isLoadingDetail && selectedTrace && (
-            <div className="trace-detail">
-              <div className="trace-metrics">
-                <span>retrieval {selectedTrace.retrieval_ms.toFixed(1)}ms</span>
-                <span>answer {selectedTrace.answer_ms.toFixed(1)}ms</span>
-                <span>{selectedTrace.embedding_model}</span>
-              </div>
-              <h3>{selectedTrace.query}</h3>
-              <MarkdownAnswer text={selectedTrace.answer} />
-              <div className="results-list">
-                {selectedTrace.retrieval.results.map((result) => (
-                  <ResultItem key={result.child_chunk_id} result={result} />
-                ))}
-              </div>
+            <div className="ops-table-wrap">
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Query</th>
+                    <th>Results</th>
+                    <th>Retrieval</th>
+                    <th>Answer</th>
+                    <th>Total</th>
+                    <th>Model</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {traces.length ? (
+                    traces.map((trace) => (
+                      <TraceRow
+                        key={trace.id}
+                        onView={() =>
+                          navigate(`/admin/traces/${encodeURIComponent(trace.id)}`)
+                        }
+                        trace={trace}
+                      />
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8}>No RAG traces recorded yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
-          {!isLoadingDetail && !selectedTrace && (
-            <EmptyState icon={<Activity size={22} />}>Run chat or test bench to create traces.</EmptyState>
-          )}
-        </BlueprintPanel>
+        </div>
       </section>
 
       <ConfirmDialog
-        confirmLabel="Clear Traces"
+        confirmDisabled={isClearing}
+        confirmLabel={isClearing ? "Clearing" : "Clear Traces"}
         isOpen={isClearOpen}
         onCancel={() => setClearOpen(false)}
         onConfirm={() => void confirmClear()}
@@ -157,6 +158,59 @@ export function AdminTracesPage() {
         <p>This removes stored trace history only. Documents, chunks, and embeddings remain.</p>
       </ConfirmDialog>
     </BlueprintPage>
+  );
+}
+
+function SummaryCard({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="document-summary-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function TraceRow({
+  onView,
+  trace,
+}: {
+  onView: () => void;
+  trace: RagTraceSummary;
+}) {
+  return (
+    <tr className="trace-table-row">
+      <td>
+        <strong>{trace.query}</strong>
+      </td>
+      <td>
+        <span className="overview-table-pill source">
+          {formatMetric(trace.result_count)}
+        </span>
+      </td>
+      <td>{formatDuration(trace.retrieval_ms)}</td>
+      <td>{formatDuration(trace.answer_ms)}</td>
+      <td>
+        <span className="overview-table-pill latency">
+          {formatDuration(trace.total_ms)}
+        </span>
+      </td>
+      <td>{trace.llm_model}</td>
+      <td>{formatDateTime(trace.created_at)}</td>
+      <td>
+        <button onClick={onView} type="button">
+          View
+        </button>
+      </td>
+    </tr>
   );
 }
 
