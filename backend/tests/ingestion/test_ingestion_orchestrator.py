@@ -6,7 +6,7 @@ import pytest
 
 from app.core.constants import BlockType, SupportedFileType
 from app.core.exceptions import IngestionError, ParserError
-from app.indexing import PgVectorIndexStats
+from app.repositories import PgVectorIndexStats
 from app.ingestion.chunking import ParentChildChunkingConfig, create_chunker
 from app.ingestion.normalizers.block_schema import (
     DocumentBlock,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.cli import clear_database
+from scripts import clear_database
 
 
 def test_clear_database_requires_explicit_confirmation(capsys):

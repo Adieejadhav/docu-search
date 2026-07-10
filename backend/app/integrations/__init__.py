@@ -1,0 +1,1 @@
+"""External technology integration boundaries."""

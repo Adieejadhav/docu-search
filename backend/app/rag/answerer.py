@@ -10,8 +10,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.exceptions import LLMError
-from app.llm import OllamaChatClient
-from app.search.retrieval import RetrievalResult
+from app.integrations.llm import OllamaChatClient
+from app.rag.answer_generator import AnswerGenerator
+from app.rag.citation_validator import CitationValidator
+from app.rag.context_builder import RagContextBuilder
+from app.rag.prompt_builder import RagPromptBuilder
+from app.rag.retrieval import RetrievalResult
 
 
 class RagAnswer(BaseModel):
@@ -33,16 +37,24 @@ class RagAnswerer:
     Generates an answer from parent-child retrieval context.
     """
 
-    SYSTEM_PROMPT = (
-        "You are a document search assistant. Answer only from the provided "
-        "retrieved context. If the context is insufficient, say that the "
-        "answer is not available in the indexed documents. Cite sources using "
-        "only plain bracketed source numbers like [1] or [2]. Do not use any "
-        "other citation format."
-    )
+    SYSTEM_PROMPT = RagPromptBuilder.SYSTEM_PROMPT
 
-    def __init__(self, *, llm_client: OllamaChatClient | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        llm_client: OllamaChatClient | None = None,
+        context_builder: RagContextBuilder | None = None,
+        prompt_builder: RagPromptBuilder | None = None,
+        answer_generator: AnswerGenerator | None = None,
+        citation_validator: CitationValidator | None = None,
+    ) -> None:
         self.llm_client = llm_client or OllamaChatClient()
+        self.context_builder = context_builder or RagContextBuilder()
+        self.prompt_builder = prompt_builder or RagPromptBuilder()
+        self.answer_generator = answer_generator or AnswerGenerator(
+            llm_client=self.llm_client,
+        )
+        self.citation_validator = citation_validator or CitationValidator()
 
     def answer(self, retrieval_result: RetrievalResult) -> RagAnswer:
         if not retrieval_result.results:
@@ -55,7 +67,7 @@ class RagAnswerer:
             )
 
         messages = self.build_messages(retrieval_result)
-        answer_text = self.llm_client.generate(messages)
+        answer_text = self.answer_generator.generate(messages)
         if not answer_text.strip():
             raise LLMError("Generated answer cannot be empty", code="EMPTY_RAG_ANSWER")
 
@@ -68,63 +80,13 @@ class RagAnswerer:
         )
 
     def build_messages(self, retrieval_result: RetrievalResult) -> list[dict[str, str]]:
-        context = self._context_text(retrieval_result)
-        user_prompt = (
-            f"Question:\n{retrieval_result.query}\n\n"
-            f"Retrieved context:\n{context}\n\n"
-            "Answer with concise, grounded wording and include citations."
+        return self.prompt_builder.build_messages(
+            query=retrieval_result.query,
+            context=self._context_text(retrieval_result),
         )
-        return [
-            {"role": "system", "content": self.SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ]
 
     def _context_text(self, retrieval_result: RetrievalResult) -> str:
-        sections: list[str] = []
-        for item in retrieval_result.results:
-            child = item.child_chunk
-            parent = item.parent_chunk
-            source_refs = ", ".join(child.source_refs or parent.source_refs or [])
-            parent_path = " > ".join(child.parent_path or parent.parent_path or [])
-            file_name = item.metadata.get("file_name", "")
-            header_parts = [
-                f"[{item.rank}]",
-                f"score={item.score:.4f}",
-            ]
-            if file_name:
-                header_parts.append(f"file={file_name}")
-            if source_refs:
-                header_parts.append(f"source={source_refs}")
-            if parent_path:
-                header_parts.append(f"path={parent_path}")
-
-            sections.append(
-                "\n".join(
-                    [
-                        " ".join(header_parts),
-                        parent.text.strip(),
-                    ]
-                )
-            )
-
-        return "\n\n".join(sections)
+        return self.context_builder.build(retrieval_result)
 
     def citations(self, retrieval_result: RetrievalResult) -> list[dict[str, Any]]:
-        citations: list[dict[str, Any]] = []
-        for item in retrieval_result.results:
-            child = item.child_chunk
-            parent = item.parent_chunk
-            citations.append(
-                {
-                    "rank": item.rank,
-                    "score": item.score,
-                    "file_name": item.metadata.get("file_name"),
-                    "file_type": item.metadata.get("file_type"),
-                    "source_refs": child.source_refs or parent.source_refs,
-                    "parent_path": child.parent_path or parent.parent_path,
-                    "child_chunk_id": child.id,
-                    "parent_chunk_id": parent.id,
-                }
-            )
-
-        return citations
+        return self.citation_validator.citations(retrieval_result)

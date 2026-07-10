@@ -5,25 +5,29 @@ Purpose: Provides API dependency factories for indexing, retrieval, and RAG.
 
 from __future__ import annotations
 
-from functools import lru_cache
-import os
+from fastapi import Depends
 
-from fastapi import Depends, Header
-
-from app.core.env import load_environment
-from app.core.exceptions import AuthenticationError, RetrievalError
-from app.embeddings import LocalSentenceTransformerEmbeddingProvider
-from app.indexing import PgVectorChunkIndex
+from app.bootstrap import get_application_container
+from app.core.config import get_settings
+from app.core.exceptions import RetrievalError
+from app.integrations.embeddings import LocalSentenceTransformerEmbeddingProvider
+from app.repositories import PgVectorChunkIndex
 from app.ingestion.jobs import IngestionJobService
 from app.ingestion.pipeline_testing import PipelineNodeTester
-from app.llm import OllamaChatClient
+from app.integrations.llm import OllamaChatClient
 from app.rag import RagAnswerer
-from app.search.service import SearchService
+from app.repositories import DocumentRepository
+from app.services import (
+    AdminService,
+    DocumentService,
+    IngestionService,
+    SearchService,
+    TraceService,
+)
 
 
 def get_database_url() -> str:
-    load_environment()
-    database_url = os.getenv("DATABASE_URL")
+    database_url = get_settings().database.url
     if not database_url:
         raise RetrievalError(
             "DATABASE_URL is required",
@@ -32,97 +36,64 @@ def get_database_url() -> str:
     return database_url
 
 
-def require_admin(x_admin_token: str | None = Header(default=None)) -> None:
-    """
-    Protects admin routes when ADMIN_API_TOKEN is configured.
-
-    Local development remains open by default. Production deployments should set
-    ADMIN_API_TOKEN and pass it as X-Admin-Token from the frontend or API client.
-    """
-
-    load_environment()
-    expected_token = os.getenv("ADMIN_API_TOKEN")
-    if not expected_token:
-        return
-
-    if x_admin_token != expected_token:
-        raise AuthenticationError(
-            "A valid admin token is required",
-            code="ADMIN_AUTH_REQUIRED",
-        )
-
-
-@lru_cache(maxsize=1)
 def get_embedding_provider() -> LocalSentenceTransformerEmbeddingProvider:
-    load_environment()
-    return LocalSentenceTransformerEmbeddingProvider(
-        model=os.getenv(
-            "LOCAL_EMBEDDING_MODEL",
-            LocalSentenceTransformerEmbeddingProvider.DEFAULT_MODEL,
-        ),
-        dimensions=int(
-            os.getenv(
-                "LOCAL_EMBEDDING_DIMENSIONS",
-                str(LocalSentenceTransformerEmbeddingProvider.DEFAULT_DIMENSIONS),
-            )
-        ),
-        batch_size=int(
-            os.getenv(
-                "LOCAL_EMBEDDING_BATCH_SIZE",
-                str(LocalSentenceTransformerEmbeddingProvider.DEFAULT_BATCH_SIZE),
-            )
-        ),
-        device=os.getenv("LOCAL_EMBEDDING_DEVICE"),
-    )
+    return get_application_container().embedding_provider
 
 
 def get_chunk_index() -> PgVectorChunkIndex:
-    return PgVectorChunkIndex(
-        database_url=get_database_url(),
-        embedding_provider=get_embedding_provider(),
-    )
+    return get_application_container().chunk_index
+
+
+def get_document_repository(
+    index: PgVectorChunkIndex = Depends(get_chunk_index),
+) -> DocumentRepository:
+    return DocumentRepository(index=index)
+
+
+def get_document_service(
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> DocumentService:
+    return DocumentService(repository=repository)
+
+
+def get_admin_service(
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> AdminService:
+    return AdminService(document_repository=repository)
 
 
 def get_ingestion_job_service() -> IngestionJobService:
-    from app.ingestion import IngestionOrchestrator
+    return get_application_container().ingestion_job_service
 
-    return IngestionJobService(
-        orchestrator=IngestionOrchestrator(index=get_chunk_index()),
-    )
+
+def get_ingestion_service(
+    job_service: IngestionJobService = Depends(get_ingestion_job_service),
+) -> IngestionService:
+    return IngestionService(job_service=job_service)
 
 
 def get_pipeline_node_tester() -> PipelineNodeTester:
-    return PipelineNodeTester(
-        embedding_provider=get_embedding_provider(),
-        index=get_chunk_index(),
-    )
+    return get_application_container().pipeline_node_tester
 
 
 def get_rag_trace_store():
-    from app.rag.traces import RagTraceStore
+    return get_application_container().rag_trace_store
 
-    return RagTraceStore(database_url=get_database_url())
+
+def get_trace_service(store=Depends(get_rag_trace_store)) -> TraceService:
+    return TraceService(store=store)
 
 
 def get_chat_store():
-    from app.chat.store import ChatStore
-
-    return ChatStore(database_url=get_database_url())
+    return get_application_container().chat_store
 
 
-@lru_cache(maxsize=1)
 def get_llm_client() -> OllamaChatClient:
-    load_environment()
-    return OllamaChatClient(
-        model=os.getenv("OLLAMA_MODEL", OllamaChatClient.DEFAULT_MODEL),
-        host=os.getenv("OLLAMA_HOST", OllamaChatClient.DEFAULT_HOST),
-        temperature=float(os.getenv("OLLAMA_TEMPERATURE", "0")),
-    )
+    return get_application_container().llm_client
 
 
-@lru_cache(maxsize=1)
 def get_rag_answerer() -> RagAnswerer:
-    return RagAnswerer(llm_client=get_llm_client())
+    return get_application_container().rag_answerer
 
 
 def get_search_service(
@@ -143,7 +114,7 @@ def get_chat_service(
     answerer: RagAnswerer = Depends(get_rag_answerer),
     trace_store=Depends(get_rag_trace_store),
 ):
-    from app.chat.service import ChatService
+    from app.services.chat_service import ChatService
 
     return ChatService(
         store=store,

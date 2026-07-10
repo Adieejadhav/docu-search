@@ -11,8 +11,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Literal
 
-from app.embeddings import EmbeddingProvider
-from app.indexing import PgVectorChunkIndex
+from app.integrations.embeddings import EmbeddingProvider
+from app.repositories import PgVectorChunkIndex
 from app.ingestion.chunking import create_chunker
 from app.ingestion.parsers.factory import ParserFactory
 from app.ingestion.validators.file_validator import validate_local_file
