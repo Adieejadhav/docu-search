@@ -15,16 +15,17 @@ from app.api.dependencies import (
     get_rag_trace_store,
     get_rag_answerer,
 )
-from app.chat import ChatMessageRecord, ChatSessionRecord, ChatSessionWithMessages
+from app.bootstrap import ApplicationContainer, reset_application_container
 from app.core.constants import SupportedFileType
-from app.db import DatabaseHealth
-from app.indexing import IndexedDocumentSummary, PgVectorIndexStats
+from app.integrations.database import DatabaseHealth
+from app.repositories import IndexedDocumentSummary, PgVectorIndexStats
+from app.repositories import ChatMessageRecord, ChatSessionRecord, ChatSessionWithMessages
 from app.ingestion.chunking import ChildChunk, ParentChunk
 from app.ingestion.jobs import IngestionJobList, IngestionJobRecord
 from app.ingestion.pipeline_testing import PipelineNodeTestResult
 from app.main import create_app
 from app.rag import RagAnswer
-from app.search.retrieval import RetrievedChunk, RetrievalResult
+from app.rag.retrieval import RetrievedChunk, RetrievalResult
 
 
 def test_root_returns_service_status():
@@ -36,8 +37,21 @@ def test_root_returns_service_status():
     assert response.json()["service"] == "docu-search-backend"
 
 
+def test_lifespan_attaches_application_container(monkeypatch):
+    monkeypatch.setenv("DOCU_SEARCH_SKIP_DOTENV", "1")
+    reset_application_container()
+    app = create_app()
+
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert isinstance(app.state.container, ApplicationContainer)
+    reset_application_container()
+
+
 def test_health_returns_configured_services(monkeypatch):
-    from app.api.routes import health
+    from app.api.v1.endpoints import health
 
     monkeypatch.setattr(
         health,

@@ -6,7 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 from app.core.exceptions import AppError, UnsupportedFileTypeError
-from app.core.observability import (
+from app.observability import (
     DEFAULT_OPERATION_METRICS_RECORDER,
     OperationMetricsRecorder,
 )

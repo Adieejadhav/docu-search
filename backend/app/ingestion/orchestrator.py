@@ -20,7 +20,7 @@ from app.ingestion.parsers.factory import ParserFactory
 from app.ingestion.validators.file_validator import should_skip_ingestion_file
 
 if TYPE_CHECKING:
-    from app.indexing.pgvector_index import PgVectorChunkIndex, PgVectorIndexStats
+    from app.repositories.search_repository import PgVectorChunkIndex, PgVectorIndexStats
 
 
 class ChunkIndex(Protocol):
@@ -104,7 +104,7 @@ class IngestionOrchestrator:
         self.parser_factory = parser_factory or ParserFactory()
         self.chunker = chunker or create_chunker()
         if index is None:
-            from app.indexing.pgvector_index import PgVectorChunkIndex
+            from app.repositories.search_repository import PgVectorChunkIndex
 
             self.index: ChunkIndex = PgVectorChunkIndex()
         else:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from app.cli.parse_documents import main
+from scripts.parse_documents import main
 
 
 def test_inspect_parser_output_skips_office_lock_files_in_directory(tmp_path):

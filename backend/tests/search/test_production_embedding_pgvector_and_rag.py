@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 
 from app.core.exceptions import EmbeddingError, RetrievalError
-from app.embeddings import LocalSentenceTransformerEmbeddingProvider
-from app.indexing import PgVectorChunkIndex
+from app.integrations.embeddings import LocalSentenceTransformerEmbeddingProvider
+from app.repositories import PgVectorChunkIndex
 from app.ingestion.chunking import ChildChunk, ChunkedDocument, ParentChunk
-from app.llm import OllamaChatClient
+from app.integrations.llm import OllamaChatClient
 from app.rag import RagAnswerer
-from app.search.retrieval import RetrievedChunk, RetrievalResult
+from app.rag.retrieval import RetrievedChunk, RetrievalResult
 
 
 def test_local_embedding_provider_uses_model_client_and_validates_dimensions():

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.indexing import PgVectorIndexStats
+from app.repositories import PgVectorIndexStats
 from app.ingestion.pipeline_testing import PipelineNodeTester
 
 

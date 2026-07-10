@@ -9,13 +9,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 import json
-import os
 from typing import Any
 from uuid import uuid4
 
-from app.core.env import load_environment
+from app.core.config import get_settings
 from app.core.exceptions import RetrievalError
-from app.db.connection import connect_postgres
+from app.integrations.database import connect_postgres
 from app.schemas import SearchResponse
 
 
@@ -51,8 +50,7 @@ class RagTraceStore:
     """
 
     def __init__(self, *, database_url: str | None = None) -> None:
-        load_environment()
-        self.database_url = database_url or os.getenv("DATABASE_URL")
+        self.database_url = database_url or get_settings().database.url
         if not self.database_url:
             raise RetrievalError(
                 "DATABASE_URL is required for RAG trace persistence",

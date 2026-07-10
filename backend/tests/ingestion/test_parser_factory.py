@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.core.exceptions import UnsupportedFileTypeError
-from app.core.observability import OperationMetricsRecorder
+from app.observability import OperationMetricsRecorder
 from app.ingestion.normalizers.block_schema import ParsedDocument
 from app.ingestion.parsers.base import BaseDocumentParser
 from app.ingestion.parsers.factory import ParserFactory

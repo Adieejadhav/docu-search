@@ -8,14 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
-from app.core.env import load_environment
+from app.core.config import get_settings
 from app.core.exceptions import IngestionError, RetrievalError
-from app.db.connection import connect_postgres
+from app.integrations.database import connect_postgres
 from app.ingestion.orchestrator import (
     IngestionOrchestrator,
     IngestionPipelineResult,
@@ -65,8 +64,7 @@ class IngestionJobStore:
     """
 
     def __init__(self, *, database_url: str | None = None) -> None:
-        load_environment()
-        self.database_url = database_url or os.getenv("DATABASE_URL")
+        self.database_url = database_url or get_settings().database.url
         if not self.database_url:
             raise RetrievalError(
                 "DATABASE_URL is required for ingestion jobs",
@@ -434,8 +432,8 @@ class IngestionJobService:
 
 
 def default_upload_root() -> Path:
-    raw_root = os.getenv("DOCU_SEARCH_UPLOAD_ROOT")
-    if raw_root:
-        return Path(raw_root)
+    upload_root = get_settings().ingestion.upload_root
+    if upload_root is not None:
+        return upload_root
 
     return Path(__file__).resolve().parents[3] / "storage" / "uploads"
