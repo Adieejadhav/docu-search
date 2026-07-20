@@ -11,7 +11,7 @@ Scattered os.getenv reads
 ```
 
 Compatibility note: CLI argument defaults still read environment variables
-directly where preserving command-line behavior is clearer.
+through `AppSettings`; command-line flags still override those defaults.
 
 ## Bootstrap
 
@@ -33,6 +33,14 @@ Document route business logic
 
 Admin clear-index route logic
   -> app.services.admin_service.AdminService
+
+Admin overview route construction
+  -> app.services.admin_overview_service.AdminOverviewService
+  -> app.bootstrap.container.ApplicationContainer
+
+Health route integration checks
+  -> app.services.health_service.HealthService
+  -> app.bootstrap.container.ApplicationContainer
 ```
 
 ## Search

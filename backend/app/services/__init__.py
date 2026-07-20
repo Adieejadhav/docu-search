@@ -8,6 +8,7 @@ from app.services.document_service import (
     DocumentService,
     DocumentSourceFile,
 )
+from app.services.health_service import HealthService
 from app.services.ingestion_service import (
     IngestionJobPlan,
     IngestionService,
@@ -26,6 +27,7 @@ __all__ = [
     "DocumentReindexPlan",
     "DocumentService",
     "DocumentSourceFile",
+    "HealthService",
     "IngestionJobPlan",
     "IngestionService",
     "IngestionUploadOptions",

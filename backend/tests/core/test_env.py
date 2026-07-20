@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from app.core.env import _load_env_file_without_dependency, load_environment
+from app.core.config import _load_env_file_without_dependency, load_environment
 
 
 def test_load_environment_finds_parent_env_without_overriding(

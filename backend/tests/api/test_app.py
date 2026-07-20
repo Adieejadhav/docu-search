@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.api.dependencies import (
     get_chat_store,
     get_chunk_index,
-    get_database_url,
+    get_health_service,
     get_ingestion_job_service,
     get_pipeline_node_tester,
     get_rag_trace_store,
@@ -17,7 +17,6 @@ from app.api.dependencies import (
 )
 from app.bootstrap import ApplicationContainer, reset_application_container
 from app.core.constants import SupportedFileType
-from app.integrations.database import DatabaseHealth
 from app.repositories import IndexedDocumentSummary, PgVectorIndexStats
 from app.repositories import ChatMessageRecord, ChatSessionRecord, ChatSessionWithMessages
 from app.ingestion.chunking import ChildChunk, ParentChunk
@@ -26,6 +25,7 @@ from app.ingestion.pipeline_testing import PipelineNodeTestResult
 from app.main import create_app
 from app.rag import RagAnswer
 from app.rag.retrieval import RetrievedChunk, RetrievalResult
+from app.schemas import HealthResponse, HealthServiceStatus
 
 
 def test_root_returns_service_status():
@@ -50,19 +50,9 @@ def test_lifespan_attaches_application_container(monkeypatch):
     reset_application_container()
 
 
-def test_health_returns_configured_services(monkeypatch):
-    from app.api.v1.endpoints import health
-
-    monkeypatch.setattr(
-        health,
-        "check_database_health",
-        lambda _: DatabaseHealth(
-            ok=True,
-            details={"pgvector_available": True, "tables": {}},
-        ),
-    )
+def test_health_returns_configured_services():
     app = create_app()
-    app.dependency_overrides[get_database_url] = lambda: "postgresql://example/db"
+    app.dependency_overrides[get_health_service] = lambda: _FakeHealthService()
     client = TestClient(app)
 
     response = client.get("/health")
@@ -244,6 +234,26 @@ class _FakeIndex:
 
     def clear(self):
         return None
+
+
+class _FakeHealthService:
+    def check(self) -> HealthResponse:
+        return HealthResponse(
+            status="ok",
+            service="docu-search-backend",
+            database=HealthServiceStatus(
+                status="ok",
+                details={"pgvector_available": True, "tables": {}},
+            ),
+            embedding=HealthServiceStatus(
+                status="ok",
+                details={"provider": "local", "model": "fake", "dimensions": 3},
+            ),
+            llm=HealthServiceStatus(
+                status="ok",
+                details={"provider": "ollama", "model": "fake", "host": "test"},
+            ),
+        )
 
 
 class _FakePipelineNodeTester:

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 from pydantic import ValidationError as PydanticValidationError
 
+from app.core.config import AppSettings, get_settings
 from app.core.exceptions import AppError
-from app.core.env import load_environment
 from app.ingestion.chunking import ChunkedDocument
 from app.integrations.embeddings import LocalSentenceTransformerEmbeddingProvider
 from app.repositories import PgVectorChunkIndex
@@ -17,8 +16,8 @@ from app.repositories import PgVectorChunkIndex
 
 def main(argv: list[str] | None = None) -> int:
     configure_terminal_encoding()
-    load_environment()
-    args = build_parser().parse_args(argv)
+    settings = get_settings()
+    args = build_parser(settings).parse_args(argv)
 
     try:
         documents = read_chunked_documents(args.input_json)
@@ -42,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     print("INDEX SUMMARY")
     print(
         "  database_url: "
-        f"{redact_database_url(args.database_url or os.getenv('DATABASE_URL', 'DATABASE_URL'))}"
+        f"{redact_database_url(args.database_url or settings.database.url or 'DATABASE_URL')}"
     )
     print(f"  input_documents: {len(documents)}")
     print(f"  indexed_child_chunks: {indexed_child_count}")
@@ -60,7 +59,7 @@ def configure_terminal_encoding() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(settings: AppSettings) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="docu-index",
         description="Persist chunk JSON into PostgreSQL + pgvector.",
@@ -73,37 +72,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--database-url", help="PostgreSQL DATABASE_URL.")
     parser.add_argument(
         "--embedding-model",
-        default=os.getenv(
-            "LOCAL_EMBEDDING_MODEL",
-            LocalSentenceTransformerEmbeddingProvider.DEFAULT_MODEL,
-        ),
+        default=settings.embedding.model_name,
         help="Local sentence-transformers embedding model.",
     )
     parser.add_argument(
         "--embedding-dimensions",
         type=int,
-        default=int(
-            os.getenv(
-                "LOCAL_EMBEDDING_DIMENSIONS",
-                str(LocalSentenceTransformerEmbeddingProvider.DEFAULT_DIMENSIONS),
-            )
-        ),
+        default=settings.embedding.dimensions,
         help="Embedding dimensions. Must match the pgvector index.",
     )
     parser.add_argument(
         "--embedding-device",
-        default=os.getenv("LOCAL_EMBEDDING_DEVICE"),
+        default=settings.embedding.device,
         help="Optional sentence-transformers device, for example cpu, cuda, or mps.",
     )
     parser.add_argument(
         "--embedding-batch-size",
         type=int,
-        default=int(
-            os.getenv(
-                "LOCAL_EMBEDDING_BATCH_SIZE",
-                str(LocalSentenceTransformerEmbeddingProvider.DEFAULT_BATCH_SIZE),
-            )
-        ),
+        default=settings.embedding.batch_size,
         help="Local embedding batch size.",
     )
     parser.add_argument(

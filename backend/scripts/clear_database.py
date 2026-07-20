@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
-from app.core.env import load_environment
+from app.core.config import AppSettings, get_settings
 from app.core.exceptions import RetrievalError
 from app.integrations.database import connect_postgres
 
@@ -20,7 +19,7 @@ APP_TABLES = (
 
 def main(argv: list[str] | None = None) -> int:
     configure_terminal_encoding()
-    load_environment()
+    settings = get_settings()
     args = build_parser().parse_args(argv)
 
     try:
@@ -31,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
 
-        database_url = resolve_database_url(args.database_url)
+        database_url = resolve_database_url(args.database_url, settings=settings)
         if args.reset_schema:
             reset_schema(database_url=database_url, migration_path=args.migration_sql)
         else:
@@ -87,8 +86,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_database_url(database_url: str | None) -> str:
-    resolved = database_url or os.getenv("DATABASE_URL")
+def resolve_database_url(database_url: str | None, *, settings: AppSettings) -> str:
+    resolved = database_url or settings.database.url
     if not resolved:
         raise RetrievalError(
             "DATABASE_URL is required for database clearing",
