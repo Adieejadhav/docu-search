@@ -2,21 +2,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.services import AdminOverviewService
 from app.api.dependencies import (
+    get_admin_overview_service,
     get_admin_service,
-    get_chunk_index,
-    get_database_url,
-    get_embedding_provider,
-    get_llm_client,
+    get_settings,
 )
 from app.api.middleware import metrics_snapshot
-from app.core.config import get_settings
-from app.integrations.embeddings import EmbeddingProvider
-from app.repositories import PgVectorChunkIndex
-from app.integrations.llm import OllamaChatClient
+from app.core.config import AppSettings
 from app.schemas import AdminClearIndexRequest, AdminClearIndexResponse, AdminOverviewResponse
-from app.services import AdminService
+from app.services import AdminOverviewService, AdminService
 
 router = APIRouter()
 
@@ -37,21 +31,13 @@ def clear_index(
 
 @router.get("/overview", response_model=AdminOverviewResponse)
 def get_admin_overview(
-    index: PgVectorChunkIndex = Depends(get_chunk_index),
-    database_url: str = Depends(get_database_url),
-    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
-    llm_client: OllamaChatClient = Depends(get_llm_client),
+    service: AdminOverviewService = Depends(get_admin_overview_service),
 ) -> AdminOverviewResponse:
     """
     Returns database-backed data for the admin overview dashboard.
     """
 
-    return AdminOverviewService(
-        database_url=database_url,
-        index=index,
-        embedding_provider=embedding_provider,
-        llm_client=llm_client,
-    ).build()
+    return service.build()
 
 
 @router.get("/metrics")
@@ -60,7 +46,9 @@ def get_api_metrics() -> dict:
 
 
 @router.get("/auth/status")
-def get_admin_auth_status() -> dict:
+def get_admin_auth_status(
+    settings: AppSettings = Depends(get_settings),
+) -> dict:
     return {
-        "admin_token_required": bool(get_settings().api.admin_api_token),
+        "admin_token_required": bool(settings.api.admin_api_token),
     }

@@ -2,46 +2,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_database_url, get_embedding_provider, get_llm_client
-from app.core.config import get_settings
-from app.integrations.database import check_database_health
-from app.schemas import HealthResponse, HealthServiceStatus
+from app.api.dependencies import get_health_service
+from app.schemas import HealthResponse
+from app.services import HealthService
 
 router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse)
-def health_check(database_url: str = Depends(get_database_url)) -> HealthResponse:
-    database_health = check_database_health(database_url)
-    settings = get_settings()
-    embedding_provider = get_embedding_provider()
-    llm_client = get_llm_client()
-
-    database = HealthServiceStatus(
-        status="ok" if database_health.ok else "degraded",
-        details=database_health.details,
-    )
-    embedding = HealthServiceStatus(
-        status="ok",
-        details={
-            "provider": embedding_provider.name,
-            "model": embedding_provider.model,
-            "dimensions": embedding_provider.dimensions,
-            "device": settings.embedding.device or "auto",
-        },
-    )
-    llm = HealthServiceStatus(
-        status="ok",
-        details={
-            "provider": "ollama",
-            "model": llm_client.model,
-            "host": llm_client.host,
-        },
-    )
-    return HealthResponse(
-        status="ok" if database.status == "ok" else "degraded",
-        service="docu-search-backend",
-        database=database,
-        embedding=embedding,
-        llm=llm,
-    )
+def health_check(
+    service: HealthService = Depends(get_health_service),
+) -> HealthResponse:
+    return service.check()
