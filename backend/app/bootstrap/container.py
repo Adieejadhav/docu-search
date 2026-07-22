@@ -9,16 +9,18 @@ from dataclasses import dataclass
 from functools import cached_property, lru_cache
 
 from app.core.config import AppSettings, get_settings
+from app.integrations.database import DatabasePool
 from app.integrations.embeddings import LocalSentenceTransformerEmbeddingProvider
 from app.repositories import PgVectorChunkIndex
 from app.repositories.chat_repository import ChatStore
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.job_repository import JobRepository
+from app.repositories.trace_repository import TraceRepository
 from app.ingestion import IngestionOrchestrator
-from app.ingestion.jobs import IngestionJobService, IngestionJobStore
+from app.ingestion.jobs import IngestionJobService
 from app.ingestion.pipeline_testing import PipelineNodeTester
 from app.integrations.llm import OllamaChatClient
 from app.rag import RagAnswerer
-from app.rag.traces import RagTraceStore
 from app.services import (
     AdminOverviewService,
     AdminService,
@@ -29,6 +31,7 @@ from app.services import (
     SearchService,
     TraceService,
 )
+from app.workers import LocalTaskExecutor, TaskExecutor, WorkerTaskExecutor
 
 
 @dataclass
@@ -42,6 +45,10 @@ class ApplicationContainer:
     """
 
     settings: AppSettings
+
+    @cached_property
+    def database_pool(self) -> DatabasePool:
+        return DatabasePool(database_url=self._required_database_url())
 
     @cached_property
     def embedding_provider(self) -> LocalSentenceTransformerEmbeddingProvider:
@@ -71,6 +78,7 @@ class ApplicationContainer:
         return PgVectorChunkIndex(
             database_url=self.settings.database.url,
             embedding_provider=self.embedding_provider,
+            database_pool=self.database_pool,
         )
 
     @cached_property
@@ -78,8 +86,11 @@ class ApplicationContainer:
         return IngestionOrchestrator(index=self.chunk_index)
 
     @cached_property
-    def ingestion_job_store(self) -> IngestionJobStore:
-        return IngestionJobStore(database_url=self.settings.database.url)
+    def ingestion_job_store(self) -> JobRepository:
+        return JobRepository(
+            database_url=self.settings.database.url,
+            database_pool=self.database_pool,
+        )
 
     @cached_property
     def ingestion_job_service(self) -> IngestionJobService:
@@ -96,12 +107,18 @@ class ApplicationContainer:
         )
 
     @cached_property
-    def rag_trace_store(self) -> RagTraceStore:
-        return RagTraceStore(database_url=self.settings.database.url)
+    def rag_trace_store(self) -> TraceRepository:
+        return TraceRepository(
+            database_url=self.settings.database.url,
+            database_pool=self.database_pool,
+        )
 
     @cached_property
     def chat_store(self) -> ChatStore:
-        return ChatStore(database_url=self.settings.database.url)
+        return ChatStore(
+            database_url=self.settings.database.url,
+            database_pool=self.database_pool,
+        )
 
     @cached_property
     def document_repository(self) -> DocumentRepository:
@@ -136,6 +153,13 @@ class ApplicationContainer:
         )
 
     @cached_property
+    def task_executor(self) -> TaskExecutor:
+        mode = self.settings.ingestion.run_mode.strip().lower()
+        if mode == "background":
+            return LocalTaskExecutor(ingestion_service=self.ingestion_service)
+        return WorkerTaskExecutor()
+
+    @cached_property
     def trace_service(self) -> TraceService:
         return TraceService(store=self.rag_trace_store)
 
@@ -150,6 +174,7 @@ class ApplicationContainer:
             index=self.chunk_index,
             embedding_provider=self.embedding_provider,
             llm_client=self.llm_client,
+            database_pool=self.database_pool,
         )
 
     @cached_property
@@ -171,6 +196,11 @@ class ApplicationContainer:
                 code="DATABASE_URL_MISSING",
             )
         return database_url
+
+    def close(self) -> None:
+        database_pool = self.__dict__.get("database_pool")
+        if database_pool is not None:
+            database_pool.close()
 
 
 @lru_cache(maxsize=1)

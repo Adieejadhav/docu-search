@@ -10,10 +10,13 @@ from app.integrations.database.migrations import (
     SqlMigrationRunner,
     default_migrations_dir,
 )
+from app.integrations.database.pool import DatabasePool
+from app.integrations.database.transaction import transaction
 
 __all__ = [
     "DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS",
     "DatabaseHealth",
+    "DatabasePool",
     "MigrationRecord",
     "MigrationResult",
     "SqlMigrationRunner",
@@ -21,4 +24,5 @@ __all__ = [
     "check_database_health",
     "database_connect_timeout_seconds",
     "default_migrations_dir",
+    "transaction",
 ]

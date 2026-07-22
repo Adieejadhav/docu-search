@@ -22,7 +22,6 @@ def test_settings_use_existing_env_names_and_defaults(monkeypatch):
         "OLLAMA_HOST",
         "OLLAMA_MODEL",
         "API_CORS_ORIGINS",
-        "ADMIN_API_TOKEN",
     ):
         monkeypatch.delenv(name, raising=False)
     reset_settings_cache()
@@ -36,7 +35,6 @@ def test_settings_use_existing_env_names_and_defaults(monkeypatch):
     assert settings.llm.host == DEFAULT_OLLAMA_HOST
     assert settings.llm.model_name == DEFAULT_OLLAMA_MODEL
     assert settings.api.cors_origins == list(DEFAULT_API_CORS_ORIGINS)
-    assert settings.api.admin_api_token is None
 
     reset_settings_cache()
 
@@ -62,7 +60,6 @@ def test_settings_read_environment_overrides(monkeypatch, tmp_path):
     monkeypatch.setenv("MAX_UPLOAD_FILE_SIZE_BYTES", "12345")
     monkeypatch.setenv("API_CORS_ORIGINS", "http://a.example, http://b.example")
     monkeypatch.setenv("API_RATE_LIMIT_PER_MINUTE", "77")
-    monkeypatch.setenv("ADMIN_API_TOKEN", "admin-token")
     monkeypatch.setenv("LOG_LEVEL", "debug")
     reset_settings_cache()
 
@@ -86,7 +83,6 @@ def test_settings_read_environment_overrides(monkeypatch, tmp_path):
     assert settings.ingestion.max_upload_file_size_bytes == 12345
     assert settings.api.cors_origins == ["http://a.example", "http://b.example"]
     assert settings.api.rate_limit_per_minute == 77
-    assert settings.api.admin_api_token == "admin-token"
     assert settings.api.log_level == "DEBUG"
     assert settings.redacted_database_url() == "postgresql://***@localhost/db"
 

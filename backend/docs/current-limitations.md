@@ -2,45 +2,43 @@
 
 ## Background Execution
 
-API-triggered ingestion currently uses FastAPI `BackgroundTasks` in background
-mode. This is convenient for local use but is not durable across process exits or
-deploy restarts. The worker entry point uses the same ingestion job service, but
-there is not yet an external durable queue such as Redis, RabbitMQ, or SQS.
+`INGESTION_RUN_MODE=background` uses FastAPI `BackgroundTasks` in the API
+process. This is process-local and is not durable across process exits or
+deploy restarts.
+
+`INGESTION_RUN_MODE=worker` leaves jobs queued for the polling worker process.
+The job records are stored in PostgreSQL, but there is no external queue such as
+Redis, RabbitMQ, or SQS.
 
 ## Authentication
 
-Admin routes use the existing admin-token behavior. If no admin token is
-configured, admin endpoints remain open for development compatibility. The
-backend does not implement user accounts, JWT authentication, role-based access
-control, or multitenancy.
+Admin routes are intentionally open in the current local/Docker setup. The
+backend does not implement users, JWT auth, RBAC, permissions, or multitenancy.
 
 ## Storage
 
-Uploaded files and source-file access depend on local filesystem paths. A
-distributed object store integration is not implemented.
+Uploaded files and source-file access use local filesystem paths. Object storage
+is not implemented.
 
-## Ollama Availability
+## Ollama
 
-Ollama is required for answer generation and chat streaming, but the application
-does not require Ollama to be available at web startup. Search and ingestion can
-still run when LLM generation is unavailable.
+Ollama is required for answer generation and chat streaming. Startup does not
+call Ollama, so the API can start while the LLM service is unavailable.
 
-## Embedding Model Lifecycle
+The Docker Compose setup expects Ollama as an external service by default,
+usually on the host at `http://host.docker.internal:11434`.
 
-The sentence-transformers model is loaded lazily and cached inside the process.
-This avoids repeated model loads in one process, but it is still a single-process
-model cache and is not coordinated across multiple workers.
+## Embeddings
 
-## Search Repository Split
+The sentence-transformers provider loads lazily and is cached per process by the
+application container. Model loading is not shared across multiple OS processes.
 
-Vector search, lexical search, and hybrid ranking are extracted under
-`app.integrations.search`. `PgVectorChunkIndex` still owns schema creation,
-document persistence, chunk persistence, index metadata, statistics, and cleanup
-SQL. A full split into dedicated chunk and index repositories remains a future
-phase and should be protected by characterization tests before moving SQL.
+## Database
 
-## Database Connections
+Container-managed repositories share an in-process `DatabasePool`. The pool is
+not a distributed pool and does not replace PostgreSQL server-side connection
+limits. Historical migrations remain unchanged.
 
-Repository and store methods still open psycopg connections per operation
-through `app.integrations.database.connect_postgres`. A shared connection pool
-has not yet been introduced.
+## Tenancy
+
+The current schema and API are single-tenant.

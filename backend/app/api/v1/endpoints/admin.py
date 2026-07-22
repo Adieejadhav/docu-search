@@ -5,10 +5,8 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import (
     get_admin_overview_service,
     get_admin_service,
-    get_settings,
 )
 from app.api.middleware import metrics_snapshot
-from app.core.config import AppSettings
 from app.schemas import AdminClearIndexRequest, AdminClearIndexResponse, AdminOverviewResponse
 from app.services import AdminOverviewService, AdminService
 
@@ -43,12 +41,3 @@ def get_admin_overview(
 @router.get("/metrics")
 def get_api_metrics() -> dict:
     return metrics_snapshot()
-
-
-@router.get("/auth/status")
-def get_admin_auth_status(
-    settings: AppSettings = Depends(get_settings),
-) -> dict:
-    return {
-        "admin_token_required": bool(settings.api.admin_api_token),
-    }

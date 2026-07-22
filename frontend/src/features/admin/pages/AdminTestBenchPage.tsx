@@ -116,6 +116,8 @@ const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
   ".txt",
   ".xlsx",
 ]);
+const IGNORED_UPLOAD_FILE_PREFIXES = ["~$", "._", "__"];
+const MAX_VISIBLE_UPLOAD_FILES = 30;
 
 const NODE_TONES: Record<IngestionNodeId | ActionNodeId, NodeTone> = {
   source: {
@@ -257,7 +259,10 @@ export function AdminTestBenchPage() {
     [jobs, selectedJobId],
   );
   const unsupportedFiles = useMemo(
-    () => files.filter((file) => !SUPPORTED_UPLOAD_EXTENSIONS.has(fileExtension(file.name))),
+    () =>
+      files.filter(
+        (file) => !SUPPORTED_UPLOAD_EXTENSIONS.has(fileExtension(displayFileName(file))),
+      ),
     [files],
   );
   const isJobActive = selectedJob?.status === "queued" || selectedJob?.status === "running";
@@ -387,7 +392,9 @@ export function AdminTestBenchPage() {
   }
 
   function acceptSelectedFiles(selectedFiles: File[]) {
-    const uniqueFiles = dedupeFiles(selectedFiles).filter((file) => file.name);
+    const uniqueFiles = dedupeFiles(selectedFiles).filter(
+      (file) => file.name && !isIgnoredUploadFile(file),
+    );
     setFiles(uniqueFiles);
     setInputError(uniqueFiles.length ? null : "No readable documents were found in that selection.");
   }
@@ -787,20 +794,28 @@ function SourceInputPopover({
           </div>
         </div>
         {!!files.length && (
-          <div className="mt-2 flex max-h-16 flex-wrap gap-1 overflow-auto">
-            {files.slice(0, 12).map((file) => (
-              <span
-                className={`max-w-40 truncate rounded-full border px-2 py-1 text-[9px] ${
-                  SUPPORTED_UPLOAD_EXTENSIONS.has(fileExtension(file.name))
-                    ? "border-slate-200 bg-white text-slate-600"
-                    : "border-rose-200 bg-rose-50 text-rose-700"
-                }`}
-                key={fileKey(file)}
-              >
-                {displayFileName(file)}
-              </span>
-            ))}
-            {files.length > 12 && <span className="px-1 py-1 text-[9px] text-slate-400">+{files.length - 12} more</span>}
+          <div className="mt-2 max-h-36 overflow-auto rounded-md border border-slate-200 bg-white">
+            {files.slice(0, MAX_VISIBLE_UPLOAD_FILES).map((file) => {
+              const displayName = displayFileName(file);
+              const isSupported = SUPPORTED_UPLOAD_EXTENSIONS.has(fileExtension(displayName));
+              return (
+                <div
+                  className={`flex min-w-0 items-center justify-between gap-3 border-b border-slate-100 px-2 py-1.5 last:border-b-0 ${
+                    isSupported ? "text-slate-600" : "bg-rose-50 text-rose-700"
+                  }`}
+                  key={fileKey(file)}
+                  title={displayName}
+                >
+                  <span className="min-w-0 truncate text-[10px]">{displayName}</span>
+                  <span className="shrink-0 text-[9px] text-slate-400">{formatBytes(file.size)}</span>
+                </div>
+              );
+            })}
+            {files.length > MAX_VISIBLE_UPLOAD_FILES && (
+              <div className="px-2 py-1.5 text-[9px] text-slate-400">
+                +{files.length - MAX_VISIBLE_UPLOAD_FILES} more
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1194,9 +1209,17 @@ async function filesFromDrop(dataTransfer: DataTransfer): Promise<File[]> {
   return (await Promise.all(entries.map((entry) => filesFromEntry(entry)))).flat();
 }
 
-async function filesFromEntry(entry: FileSystemEntry): Promise<File[]> {
-  if (entry.isFile) return [await fileFromEntry(entry as FileSystemFileEntry)];
-  if (entry.isDirectory) return filesFromDirectory(entry as FileSystemDirectoryEntry);
+async function filesFromEntry(entry: FileSystemEntry, parentPath = ""): Promise<File[]> {
+  if (entry.isFile) {
+    const file = await fileFromEntry(entry as FileSystemFileEntry);
+    return [withRelativePath(file, joinRelativePath(parentPath, file.name))];
+  }
+  if (entry.isDirectory) {
+    return filesFromDirectory(
+      entry as FileSystemDirectoryEntry,
+      joinRelativePath(parentPath, entry.name),
+    );
+  }
   return [];
 }
 
@@ -1204,7 +1227,10 @@ function fileFromEntry(entry: FileSystemFileEntry): Promise<File> {
   return new Promise((resolve, reject) => entry.file(resolve, reject));
 }
 
-async function filesFromDirectory(entry: FileSystemDirectoryEntry): Promise<File[]> {
+async function filesFromDirectory(
+  entry: FileSystemDirectoryEntry,
+  parentPath: string,
+): Promise<File[]> {
   const reader = entry.createReader();
   const files: File[] = [];
   while (true) {
@@ -1212,9 +1238,29 @@ async function filesFromDirectory(entry: FileSystemDirectoryEntry): Promise<File
       reader.readEntries(resolve, reject),
     );
     if (!entries.length) break;
-    files.push(...(await Promise.all(entries.map((child) => filesFromEntry(child)))).flat());
+    const nestedFiles = await Promise.all(
+      entries.map((child) => filesFromEntry(child, parentPath)),
+    );
+    files.push(...nestedFiles.flat());
   }
   return files;
+}
+
+function withRelativePath(file: File, relativePath: string): File {
+  if (!relativePath || file.webkitRelativePath) return file;
+  try {
+    Object.defineProperty(file, "webkitRelativePath", {
+      configurable: true,
+      value: relativePath,
+    });
+  } catch {
+    return file;
+  }
+  return file;
+}
+
+function joinRelativePath(...parts: string[]): string {
+  return parts.filter(Boolean).join("/");
 }
 
 function dedupeFiles(selectedFiles: File[]): File[] {
@@ -1231,6 +1277,11 @@ function displayFileName(file: File): string {
   return file.webkitRelativePath || file.name;
 }
 
+function isIgnoredUploadFile(file: File): boolean {
+  const baseName = fileNameFromPath(displayFileName(file));
+  return IGNORED_UPLOAD_FILE_PREFIXES.some((prefix) => baseName.startsWith(prefix));
+}
+
 function fileKey(file: File): string {
   return `${displayFileName(file)}:${file.size}:${file.lastModified}`;
 }
@@ -1242,6 +1293,12 @@ function fileExtension(fileName: string): string {
 
 function fileNameFromPath(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function shortJobId(jobId: string): string {

@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from app.core.config import get_settings
 from app.core.exceptions import RetrievalError
-from app.integrations.database import connect_postgres
+from app.integrations.database import DatabasePool, connect_postgres
 
 ChatRole = Literal["user", "assistant"]
 
@@ -60,8 +60,15 @@ class ChatStore:
     PostgreSQL-backed chat history store.
     """
 
-    def __init__(self, *, database_url: str | None = None) -> None:
-        self.database_url = database_url or get_settings().database.url
+    def __init__(
+        self,
+        *,
+        database_url: str | None = None,
+        database_pool: DatabasePool | None = None,
+    ) -> None:
+        self.database_pool = database_pool
+        self.database_url = database_url or getattr(database_pool, "database_url", None)
+        self.database_url = self.database_url or get_settings().database.url
         if not self.database_url:
             raise RetrievalError(
                 "DATABASE_URL is required for chat history persistence",
@@ -279,6 +286,8 @@ class ChatStore:
         return row is not None
 
     def _connect(self) -> Any:
+        if self.database_pool is not None:
+            return self.database_pool.connection()
         return connect_postgres(
             self.database_url,
             package_error_message=(

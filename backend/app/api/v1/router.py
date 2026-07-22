@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from app.api.middleware.authentication import require_admin
 from app.api.v1.endpoints import (
     admin,
     chat,
@@ -42,29 +41,24 @@ v1_router.include_router(
     admin.router,
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(require_admin)],
 )
 v1_router.include_router(
     documents.admin_router,
     prefix="/admin/documents",
     tags=["admin", "documents"],
-    dependencies=[Depends(require_admin)],
 )
 v1_router.include_router(
     ingestion.router,
     prefix="/admin/ingestion",
     tags=["admin", "ingestion"],
-    dependencies=[Depends(require_admin)],
 )
 v1_router.include_router(
     pipeline.router,
     prefix="/admin/pipeline",
     tags=["admin", "pipeline"],
-    dependencies=[Depends(require_admin)],
 )
 v1_router.include_router(
     traces.router,
     prefix="/admin/traces",
     tags=["admin", "traces"],
-    dependencies=[Depends(require_admin)],
 )

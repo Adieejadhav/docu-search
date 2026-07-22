@@ -10,13 +10,14 @@ from fastapi import (
     UploadFile,
 )
 
-from app.api.dependencies import get_ingestion_service
+from app.api.dependencies import get_ingestion_service, get_task_executor
 from app.schemas import (
     IngestionJobCreateResponse,
     IngestionJobListResponse,
     IngestionJobResponse,
 )
 from app.services import IngestionService, IngestionUploadOptions
+from app.workers import TaskExecutor
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ async def create_ingestion_job(
     replace: bool = Form(default=True),
     continue_on_error: bool = Form(default=True),
     service: IngestionService = Depends(get_ingestion_service),
+    task_executor: TaskExecutor = Depends(get_task_executor),
 ) -> IngestionJobCreateResponse:
     plan = await service.create_upload_job(
         files=files,
@@ -39,7 +41,10 @@ async def create_ingestion_job(
         ),
     )
     if plan.run_in_background:
-        background_tasks.add_task(service.run_job, plan.job.id)
+        task_executor.submit_ingestion_job(
+            plan.job.id,
+            add_background_task=background_tasks.add_task,
+        )
     return IngestionJobCreateResponse(
         job=IngestionJobResponse.model_validate(plan.job)
     )

@@ -9,6 +9,8 @@ from app.ingestion.jobs import IngestionJobList, IngestionJobRecord
 from app.services.ingestion_service import (
     IngestionService,
     IngestionUploadOptions,
+    sanitize_upload_relative_path,
+    should_skip_upload_file,
     sanitize_upload_filename,
     unique_destination,
 )
@@ -70,7 +72,50 @@ def test_upload_filename_helpers_match_route_compatibility(tmp_path):
     existing.write_text("first", encoding="utf-8")
 
     assert sanitize_upload_filename("../report final.txt") == "report_final.txt"
+    assert sanitize_upload_relative_path("team docs/run book.txt") == Path(
+        "team_docs",
+        "run_book.txt",
+    )
+    assert should_skip_upload_file("team docs/~$run book.docx") is True
+    assert should_skip_upload_file("team docs/~$_aquila_docx_procedure_fixture.docx") is True
+    assert should_skip_upload_file("team docs/__aquila_docx_procedure_fixture.docx") is True
     assert unique_destination(tmp_path, "report.txt") == tmp_path / "report-2.txt"
+
+
+def test_create_upload_job_preserves_folder_paths_and_skips_temp_files(tmp_path):
+    job_service = _FakeIngestionJobService(upload_root=tmp_path)
+    service = IngestionService(
+        job_service=job_service,
+        settings=IngestionSettings(
+            run_mode="background",
+            max_upload_files=3,
+            max_upload_file_size_bytes=1024,
+        ),
+    )
+    upload = _FakeUpload(filename="team docs/run book.txt", content=b"hello team")
+    temp_upload = _FakeUpload(
+        filename="team docs/~$_aquila_docx_procedure_fixture.docx",
+        content=b"lock",
+    )
+
+    plan = asyncio.run(
+        service.create_upload_job(
+            files=[upload, temp_upload],
+            options=IngestionUploadOptions(
+                clear_index=False,
+                replace=True,
+                continue_on_error=True,
+            ),
+        )
+    )
+
+    assert plan.job.id == "job-1"
+    assert upload.closed is True
+    assert temp_upload.closed is True
+    assert len(job_service.source_paths) == 1
+    relative_parts = job_service.source_paths[0].relative_to(tmp_path).parts
+    assert relative_parts[1:] == ("team_docs", "run_book.txt")
+    assert job_service.source_paths[0].read_bytes() == b"hello team"
 
 
 class _FakeUpload:

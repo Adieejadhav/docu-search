@@ -29,7 +29,6 @@ import type {
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 export const API_BASE_URL = configuredApiBaseUrl || "/api";
-const configuredAdminToken = import.meta.env.VITE_ADMIN_TOKEN?.trim();
 
 export async function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/health");
@@ -134,9 +133,6 @@ export async function askChatStream(
 ): Promise<void> {
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
-  if (configuredAdminToken) {
-    headers.set("X-Admin-Token", configuredAdminToken);
-  }
 
   const response = await fetch(`${API_BASE_URL}/chat/ask/stream`, {
     method: "POST",
@@ -173,7 +169,7 @@ export async function createIngestionJob(
 ): Promise<IngestionJobCreateResponse> {
   const formData = new FormData();
   for (const file of options.files) {
-    formData.append("files", await materializeUploadBlob(file), file.name || "upload");
+    formData.append("files", await materializeUploadBlob(file), uploadFileName(file));
   }
   formData.set("clear_index", String(options.clear_index));
   formData.set("replace", String(options.replace));
@@ -197,8 +193,12 @@ async function materializeUploadBlob(file: File): Promise<Blob> {
   }
 }
 
-function displayUploadFileName(file: File): string {
+function uploadFileName(file: File): string {
   return file.webkitRelativePath || file.name || "upload";
+}
+
+function displayUploadFileName(file: File): string {
+  return uploadFileName(file);
 }
 
 export async function listIngestionJobs(options?: {
@@ -246,9 +246,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (init?.body !== undefined && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
-  }
-  if (configuredAdminToken) {
-    headers.set("X-Admin-Token", configuredAdminToken);
   }
 
   const url = `${API_BASE_URL}${path}`;
