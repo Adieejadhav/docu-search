@@ -14,9 +14,13 @@ from app.ingestion.jobs import (
     IngestionJobService,
 )
 from app.ingestion.parsers.factory import ParserFactory
-from app.ingestion.validators.file_validator import validate_local_file
+from app.ingestion.validators.file_validator import (
+    should_skip_ingestion_file,
+    validate_local_file,
+)
 
 _SAFE_FILENAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
+_UPLOAD_PATH_SEPARATOR_PATTERN = re.compile(r"[\\/]+")
 
 
 class UploadFileSource(Protocol):
@@ -85,24 +89,37 @@ class IngestionService:
         max_file_size_bytes = self.settings.max_upload_file_size_bytes
 
         for file_index, upload in enumerate(files, start=1):
-            filename = sanitize_upload_filename(upload.filename or f"upload-{file_index}")
-            suffix = Path(filename).suffix.lower()
+            raw_filename = upload.filename or f"upload-{file_index}"
+            if should_skip_upload_file(raw_filename):
+                await upload.close()
+                continue
+
+            try:
+                upload_path = sanitize_upload_relative_path(raw_filename)
+            except IngestionError:
+                await upload.close()
+                raise
+            suffix = upload_path.suffix.lower()
             if suffix not in supported_extensions:
+                await upload.close()
                 raise IngestionError(
                     "Uploaded file type is not supported",
                     code="UNSUPPORTED_UPLOAD_FILE_TYPE",
                     details={
-                        "file_name": filename,
+                        "file_name": str(upload_path),
                         "supported_extensions": sorted(supported_extensions),
                     },
                 )
 
-            destination = unique_destination(upload_dir, filename)
+            destination = unique_destination(upload_dir, upload_path)
             await write_upload_file(
                 upload,
                 destination,
                 max_file_size_bytes=max_file_size_bytes,
             )
+            if should_skip_ingestion_file(destination):
+                destination.unlink(missing_ok=True)
+                continue
             validate_local_file(
                 destination,
                 supported_extensions=set(supported_extensions),
@@ -110,6 +127,12 @@ class IngestionService:
                 validate_content_type=True,
             )
             source_paths.append(destination)
+
+        if not source_paths:
+            raise IngestionError(
+                "No readable documents were found in the upload",
+                code="NO_READABLE_UPLOAD_FILES",
+            )
 
         job = self.job_service.create_job(
             source_paths=source_paths,
@@ -153,7 +176,10 @@ class IngestionService:
 
 
 def sanitize_upload_filename(filename: str) -> str:
-    raw_name = Path(filename).name.strip().replace(" ", "_")
+    raw_name = _UPLOAD_PATH_SEPARATOR_PATTERN.split(filename.strip())[-1].replace(
+        " ",
+        "_",
+    )
     safe_name = _SAFE_FILENAME_PATTERN.sub("_", raw_name)
     if safe_name in {"", ".", ".."}:
         raise IngestionError(
@@ -163,22 +189,59 @@ def sanitize_upload_filename(filename: str) -> str:
     return safe_name
 
 
-def unique_destination(directory: Path, filename: str) -> Path:
+def sanitize_upload_relative_path(filename: str) -> Path:
+    raw_parts = _UPLOAD_PATH_SEPARATOR_PATTERN.split(filename.strip())
+    safe_parts: list[str] = []
+
+    for raw_part in raw_parts:
+        cleaned_part = raw_part.strip().replace(" ", "_")
+        if cleaned_part in {"", "."}:
+            continue
+        if cleaned_part == "..":
+            raise IngestionError(
+                "Uploaded file name is invalid",
+                code="INVALID_UPLOAD_FILENAME",
+            )
+
+        safe_part = _SAFE_FILENAME_PATTERN.sub("_", cleaned_part)
+        if safe_part in {"", ".", ".."}:
+            raise IngestionError(
+                "Uploaded file name is invalid",
+                code="INVALID_UPLOAD_FILENAME",
+            )
+        safe_parts.append(safe_part)
+
+    if not safe_parts:
+        raise IngestionError(
+            "Uploaded file name is invalid",
+            code="INVALID_UPLOAD_FILENAME",
+        )
+
+    return Path(*safe_parts)
+
+
+def should_skip_upload_file(filename: str) -> bool:
+    base_name = _UPLOAD_PATH_SEPARATOR_PATTERN.split(filename.strip())[-1]
+    return should_skip_ingestion_file(base_name)
+
+
+def unique_destination(directory: Path, filename: str | Path) -> Path:
     candidate = directory / filename
     if not candidate.exists():
         return candidate
 
     stem = candidate.stem
     suffix = candidate.suffix
+    parent = candidate.parent
     for index in range(2, 1000):
-        candidate = directory / f"{stem}-{index}{suffix}"
+        candidate = parent / f"{stem}-{index}{suffix}"
         if not candidate.exists():
             return candidate
 
     raise IngestionError(
         "Could not allocate a unique upload file name",
         code="UPLOAD_FILENAME_COLLISION",
-        details={"file_name": filename},
+        details={"file_name": str(filename)},
     )
 
 
@@ -190,6 +253,7 @@ async def write_upload_file(
 ) -> None:
     total_bytes = 0
     try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("wb") as output:
             while chunk := await upload.read(1024 * 1024):
                 total_bytes += len(chunk)

@@ -1,20 +1,156 @@
+x-backend-environment: &backend-environment
+  DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://docusearch:docusearch@postgres:5432/docusearch}
+  DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-5}
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+  LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+  LOCAL_EMBEDDING_DIMENSIONS: ${LOCAL_EMBEDDING_DIMENSIONS:-384}
+  LOCAL_EMBEDDING_DEVICE: ${LOCAL_EMBEDDING_DEVICE:-cpu}
+  LOCAL_EMBEDDING_BATCH_SIZE: ${LOCAL_EMBEDDING_BATCH_SIZE:-64}
+  DOCU_SEARCH_UPLOAD_ROOT: ${DOCKER_UPLOAD_ROOT:-/storage/uploads}
+  INGESTION_RUN_MODE: ${DOCKER_INGESTION_RUN_MODE:-background}
+  HYBRID_VECTOR_WEIGHT: ${HYBRID_VECTOR_WEIGHT:-0.62}
+  HYBRID_LEXICAL_WEIGHT: ${HYBRID_LEXICAL_WEIGHT:-0.30}
+  HYBRID_PHRASE_WEIGHT: ${HYBRID_PHRASE_WEIGHT:-0.08}
+  OLLAMA_HOST: ${DOCKER_OLLAMA_HOST:-http://host.docker.internal:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-gpt-oss:120b-cloud}
+  OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0}
+  API_CORS_ORIGINS: ${DOCKER_API_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:5174,http://127.0.0.1:5174}
+  API_RATE_LIMIT_PER_MINUTE: ${API_RATE_LIMIT_PER_MINUTE:-120}
+  MAX_UPLOAD_FILES: ${MAX_UPLOAD_FILES:-100}
+  MAX_UPLOAD_FILE_SIZE_BYTES: ${MAX_UPLOAD_FILE_SIZE_BYTES:-26214400}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend-build: &backend-build
+  context: ./backend
+
+x-backend-service: &backend-service
+  environment: *backend-environment
+  logging: *default-logging
+  volumes:
+    - ./storage/uploads:/storage/uploads
+    - docu_search_hf_cache:/home/appuser/.cache/huggingface
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
 services:
   postgres:
-    image: pgvector/pgvector:pg16
     container_name: docu-search-postgres
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_checkpoints=off",
+      ]
     environment:
-      POSTGRES_DB: docusearch
-      POSTGRES_USER: docusearch
-      POSTGRES_PASSWORD: docusearch
+      POSTGRES_DB: ${POSTGRES_DB:-docusearch}
+      POSTGRES_USER: ${POSTGRES_USER:-docusearch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docusearch}
     ports:
-      - "55432:5432"
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
     volumes:
       - docu_search_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docusearch -d docusearch"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  migrations:
+    <<: *backend-service
+    container_name: docu-search-migrations
+    image: docu-search-migrations:local
+    build: *backend-build
+    restart: "no"
+    command: ["python", "-m", "scripts.migrate_database"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    <<: *backend-service
+    container_name: docu-search-backend
+    image: docu-search-backend:local
+    build: *backend-build
+    command:
+      [
+        "python",
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--no-access-log",
+        "--log-level",
+        "${UVICORN_LOG_LEVEL:-info}",
+      ]
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import socket; socket.create_connection(('127.0.0.1', 8000), timeout=5).close()\"",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  frontend:
+    container_name: docu-search-frontend
+    image: docu-search-frontend:local
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      NGINX_ENTRYPOINT_QUIET_LOGS: "1"
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --spider http://127.0.0.1:8080/nginx-health || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *backend-service
+    container_name: docu-search-worker
+    image: docu-search-worker:local
+    build: *backend-build
+    restart: unless-stopped
+    profiles: ["worker"]
+    command: ["python", "-m", "scripts.run_ingestion_worker", "--poll-seconds", "3"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+
 volumes:
   docu_search_postgres_data:
+  docu_search_hf_cache:

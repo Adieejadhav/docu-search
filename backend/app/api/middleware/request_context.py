@@ -12,6 +12,7 @@ from app.core.exceptions import AppError
 from app.observability import DEFAULT_OPERATION_METRICS_RECORDER
 
 logger = logging.getLogger("docu_search.api")
+QUIET_REQUEST_PATHS = {"/", "/health"}
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -48,6 +49,10 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         elapsed_ms = duration_ms(started)
         response.headers["X-Request-ID"] = request_id
+        is_quiet_success = request.url.path in QUIET_REQUEST_PATHS and response.status_code < 400
+        if is_quiet_success:
+            return response
+
         if response.status_code >= 400:
             DEFAULT_OPERATION_METRICS_RECORDER.record_failure(
                 operation_name=operation_name,
@@ -60,7 +65,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 duration_ms=elapsed_ms,
             )
 
-        logger.info(
+        logger.log(
+            logging.WARNING if response.status_code >= 400 else logging.INFO,
             "request",
             extra={
                 "request_id": request_id,

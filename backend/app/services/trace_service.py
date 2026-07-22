@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.core.exceptions import RetrievalError
-from app.rag.traces import RagTraceRecord, RagTraceStore
+from app.repositories.trace_repository import RagTraceRecord, TraceRepository
 from app.schemas import (
     RagTraceDeleteResponse,
     RagTraceDetail,
@@ -16,7 +16,7 @@ class TraceService:
     Coordinates admin-facing RAG trace inspection and cleanup.
     """
 
-    def __init__(self, *, store: RagTraceStore) -> None:
+    def __init__(self, *, store: TraceRepository) -> None:
         self.store = store
 
     def list_traces(self, *, limit: int, offset: int) -> RagTraceListResponse:

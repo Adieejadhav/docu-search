@@ -1,65 +1,140 @@
 # Backend Overview
 
-The backend is now organized as a modular monolith. Runtime behavior and public
-API contracts remain rooted at the existing paths; the Vite frontend can keep
-using `/api/*` through its proxy.
+The backend is a modular monolith for document ingestion, retrieval, and
+grounded RAG answers. Public API paths remain unchanged for frontend
+compatibility.
 
-## Request Flow
+## Runtime Flow
 
 ```text
 Frontend
-  -> API route
-  -> service
-  -> RAG, ingestion, repository, or integration component
-  -> PostgreSQL, pgvector, Ollama, sentence-transformers, or local storage
+  -> API endpoint
+  -> Service
+  -> RAG or ingestion workflow
+  -> Repository
+  -> Integration
+  -> PostgreSQL / pgvector / Ollama / Sentence Transformers
 ```
 
-## Main Responsibilities
+## Responsibilities
+
+`app/api` handles FastAPI transport, middleware, dependency adapters, exception
+mapping, and SSE wire formatting. Endpoint modules should stay thin and call
+services.
+
+`app/schemas` defines request and response contracts.
+
+`app/services` coordinates user-facing operations for search, chat, documents,
+ingestion, admin actions, health, and trace inspection.
+
+`app/rag` builds context and prompts, calls the answer generator, validates
+citations, and keeps the `RagAnswerer` facade.
+
+`app/ingestion` validates files, selects parsers, normalizes parsed content,
+chunks documents, and runs the ingestion orchestrator.
+
+`app/repositories` owns persistence-facing application data access: documents,
+chunks, index metadata/stats, search coordination, jobs, traces, and chat.
+`PgVectorChunkIndex` remains as the compatibility facade while delegating to
+focused repositories.
+
+`app/integrations` contains technology-specific adapters for PostgreSQL,
+pgvector search, full-text search, hybrid ranking, sentence-transformers, and
+Ollama.
+
+`app/bootstrap` creates the application container, shared database pool, and
+startup checks.
+
+`app/lifespan.py` attaches the container, records startup checks, and closes
+shared resources.
+
+`app/workers` contains the local/worker task execution boundary and the polling
+worker.
+
+`app/observability` owns in-process operation metrics. Compatibility imports
+remain in `app.core.observability`.
+
+## Main Flows
+
+Search:
 
 ```text
-app/api
-  FastAPI routes, dependencies, exception handlers, middleware, and SSE
-  serialization.
-
-app/schemas
-  Pydantic request and response contracts.
-
-app/services
-  User-action coordination for documents, admin actions, ingestion jobs, search,
-  and trace inspection.
-
-app/rag
-  Context construction, prompt construction, answer generation, citation
-  extraction, and the compatibility answerer facade.
-
-app/ingestion
-  File validation, parser selection, normalization, parent-child chunking,
-  pipeline testing, and job execution.
-
-app/repositories
-  Application-friendly persistence adapters. The document repository currently
-  wraps the pgvector index compatibility facade.
-
-app/integrations
-  External technology adapters for PostgreSQL, pgvector search, lexical search,
-  hybrid ranking, sentence-transformers, and Ollama.
-
-app/core
-  Shared settings, constants, environment loading, and exception types.
-
-app/observability
-  In-process operation metrics. `app.core.observability` remains a compatibility
-  import path.
-
-app/bootstrap
-  Application dependency container and shared object construction.
+POST /search
+  -> SearchService
+  -> PgVectorChunkIndex.retrieve
+  -> SearchRepository
+  -> PgVectorSearch + LexicalSearch + HybridSearchRanker
 ```
 
-## Startup
+Answer generation:
 
-`app.main.create_app()` loads environment values, creates the FastAPI app,
-registers middleware and exception handlers, includes the router, and attaches
-the application container through `app.lifespan.lifespan`.
+```text
+POST /ask or /chat/ask
+  -> SearchService / ChatService
+  -> retrieval
+  -> RagAnswerer
+  -> RagContextBuilder
+  -> RagPromptBuilder
+  -> AnswerGenerator
+  -> OllamaChatClient
+  -> CitationValidator
+  -> TraceRepository
+```
 
-The container lazily builds shared runtime objects so the embedding model and
-LLM client are not repeatedly constructed by route handlers.
+Ingestion:
+
+```text
+POST /admin/ingestion/jobs
+  -> IngestionService
+  -> JobRepository
+  -> TaskExecutor
+  -> IngestionJobService
+  -> IngestionOrchestrator
+  -> parsers / normalizers / chunker
+  -> PgVectorChunkIndex
+```
+
+Chat streaming:
+
+```text
+POST /chat/ask/stream
+  -> ChatService.stream_answer
+  -> session event
+  -> retrieval event
+  -> delta events
+  -> complete or error event
+```
+
+## What Not To Put Where
+
+Do not put SQL, parser logic, embedding calls, or Ollama calls in `app/api`.
+
+Do not put FastAPI imports in `app/rag` or `app/ingestion`.
+
+Do not put API imports in `app/repositories` or `app/integrations`.
+
+Do not put feature services or business workflows in `app/core`.
+
+## Docker Shape
+
+The Docker Compose stack contains:
+
+```text
+postgres    pgvector PostgreSQL
+migrations  one-shot SQL migration runner
+backend     FastAPI API process
+frontend    Nginx static frontend + /api proxy
+worker      optional queued ingestion worker profile
+```
+
+Docker uses an internal database URL:
+
+```text
+postgresql://...@postgres:5432/...
+```
+
+Local development can still use the host-mapped PostgreSQL port:
+
+```text
+postgresql://...@127.0.0.1:55432/...
+```

@@ -6,6 +6,7 @@ Purpose: Applies versioned PostgreSQL schema migrations.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -31,19 +32,29 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = SqlMigrationRunner(migrations_dir=args.migrations_dir).apply()
     except AppError as exc:
-        print(f"ERROR: {exc.code}: {exc.message}", file=sys.stderr)
-        if exc.details:
-            print(f"DETAILS: {exc.details}", file=sys.stderr)
+        print(
+            "level=error service=migrations event=failed"
+            f" code={exc.code}"
+            f" message={json.dumps(exc.message)}"
+            f" details={json.dumps(exc.details, sort_keys=True)}",
+            file=sys.stderr,
+        )
         return 1
 
-    print("MIGRATION SUMMARY")
-    print(f"  applied: {len(result.applied)}")
-    print(f"  skipped: {len(result.skipped)}")
-    for record in result.applied:
-        print(f"  applied {record.version}: {record.name}")
-    for record in result.skipped:
-        print(f"  skipped {record.version}: {record.name}")
+    print(
+        "level=info service=migrations event=complete"
+        f" applied_count={len(result.applied)}"
+        f" skipped_count={len(result.skipped)}"
+        f" applied={migration_names(result.applied)}"
+        f" skipped={migration_names(result.skipped)}",
+    )
     return 0
+
+
+def migration_names(records) -> str:
+    if not records:
+        return "-"
+    return ",".join(f"{record.version}:{record.name}" for record in records)
 
 
 if __name__ == "__main__":

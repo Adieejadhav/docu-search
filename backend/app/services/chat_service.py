@@ -12,8 +12,8 @@ from typing import Any, Iterator
 from app.repositories.chat_repository import ChatMessageRecord, ChatSessionRecord, ChatStore
 from app.core.exceptions import RetrievalError
 from app.repositories import PgVectorChunkIndex
+from app.repositories.trace_repository import TraceRepository
 from app.rag import RagAnswerer
-from app.rag.traces import RagTraceStore
 from app.schemas import (
     AskResponse,
     ChatAskResponse,
@@ -47,7 +47,7 @@ class ChatService:
         store: ChatStore,
         index: PgVectorChunkIndex,
         answerer: RagAnswerer,
-        trace_store: RagTraceStore,
+        trace_store: TraceRepository,
     ) -> None:
         self.store = store
         self.index = index

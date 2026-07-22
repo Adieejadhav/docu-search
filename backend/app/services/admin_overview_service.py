@@ -3,13 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from app.integrations.database import check_database_health
-from app.integrations.database import connect_postgres
+from app.integrations.database import DatabasePool, check_database_health, connect_postgres
 from app.integrations.embeddings import EmbeddingProvider
 from app.repositories import PgVectorChunkIndex
-from app.ingestion.jobs import IngestionJobRecord, IngestionJobStore
+from app.repositories.job_repository import IngestionJobRecord, JobRepository
+from app.repositories.trace_repository import RagTraceRecord, TraceRepository
 from app.integrations.llm import OllamaChatClient
-from app.rag.traces import RagTraceRecord, RagTraceStore
 from app.schemas import (
     AdminOverviewHealth,
     AdminOverviewIndexStats,
@@ -32,22 +31,30 @@ class AdminOverviewService:
         index: PgVectorChunkIndex,
         embedding_provider: EmbeddingProvider,
         llm_client: OllamaChatClient,
+        database_pool: DatabasePool | None = None,
     ) -> None:
         self.database_url = database_url
         self.index = index
         self.embedding_provider = embedding_provider
         self.llm_client = llm_client
+        self.database_pool = database_pool
 
     def build(self) -> AdminOverviewResponse:
         index_stats = self.index.stats()
         database_health = check_database_health(self.database_url)
 
-        trace_store = RagTraceStore(database_url=self.database_url)
-        job_store = IngestionJobStore(database_url=self.database_url)
+        trace_store = TraceRepository(
+            database_url=self.database_url,
+            database_pool=self.database_pool,
+        )
+        job_store = JobRepository(
+            database_url=self.database_url,
+            database_pool=self.database_pool,
+        )
         trace_store.initialize()
         job_store.initialize()
 
-        with connect_postgres(self.database_url) as connection:
+        with self._connect() as connection:
             vector_count = count_child_embeddings(connection)
             queries = query_count_summary(connection)
             ingestion_jobs = ingestion_job_summary(connection)
@@ -90,6 +97,11 @@ class AdminOverviewService:
             recent_traces=recent_traces,
             recent_jobs=recent_jobs,
         )
+
+    def _connect(self):
+        if self.database_pool is not None:
+            return self.database_pool.connection()
+        return connect_postgres(self.database_url)
 
 
 def count_child_embeddings(connection: Any) -> int:

@@ -70,7 +70,6 @@ class IngestionSettings(BaseModel):
 class ApiSettings(BaseModel):
     cors_origins: list[str] = Field(default_factory=lambda: list(DEFAULT_API_CORS_ORIGINS))
     rate_limit_per_minute: int = DEFAULT_API_RATE_LIMIT_PER_MINUTE
-    admin_api_token: str | None = None
     log_level: str = DEFAULT_LOG_LEVEL
 
     @field_validator("cors_origins")
@@ -177,7 +176,6 @@ def get_settings() -> AppSettings:
                 "API_RATE_LIMIT_PER_MINUTE",
                 DEFAULT_API_RATE_LIMIT_PER_MINUTE,
             ),
-            admin_api_token=_optional_env("ADMIN_API_TOKEN"),
             log_level=_str_env("LOG_LEVEL", DEFAULT_LOG_LEVEL),
         ),
     )

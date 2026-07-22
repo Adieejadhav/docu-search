@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import FileResponse
 
-from app.api.dependencies import get_document_service, get_ingestion_job_service
+from app.api.dependencies import (
+    get_document_service,
+    get_ingestion_job_service,
+    get_task_executor,
+)
 from app.ingestion.jobs import IngestionJobService
 from app.schemas import (
     DocumentChunkListResponse,
@@ -15,6 +19,7 @@ from app.schemas import (
     IngestionJobResponse,
 )
 from app.services import DocumentService
+from app.workers import TaskExecutor
 
 router = APIRouter()
 admin_router = APIRouter()
@@ -88,13 +93,17 @@ def reindex_document(
     background_tasks: BackgroundTasks,
     document_service: DocumentService = Depends(get_document_service),
     service: IngestionJobService = Depends(get_ingestion_job_service),
+    task_executor: TaskExecutor = Depends(get_task_executor),
 ) -> IngestionJobCreateResponse:
     plan = document_service.create_reindex_job(
         document_id,
         ingestion_jobs=service,
     )
     if plan.run_in_background:
-        background_tasks.add_task(service.run_job, plan.job.id)
+        task_executor.submit_ingestion_job(
+            plan.job.id,
+            add_background_task=background_tasks.add_task,
+        )
     return IngestionJobCreateResponse(
         job=IngestionJobResponse.model_validate(plan.job),
     )

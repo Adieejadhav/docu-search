@@ -5,7 +5,7 @@ from typing import Any
 
 from app.repositories import PgVectorChunkIndex
 from app.rag import RagAnswerer
-from app.rag.traces import RagTraceStore
+from app.repositories.trace_repository import TraceRepository
 from app.schemas import AskResponse, SearchResponse
 from app.services.search_mapping import duration_ms, search_response_from_result
 
@@ -20,7 +20,7 @@ class SearchService:
         *,
         index: PgVectorChunkIndex,
         answerer: RagAnswerer,
-        trace_store: RagTraceStore,
+        trace_store: TraceRepository,
     ) -> None:
         self.index = index
         self.answerer = answerer

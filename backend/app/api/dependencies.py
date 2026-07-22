@@ -22,10 +22,10 @@ from app.ingestion import IngestionOrchestrator
 from app.ingestion.jobs import IngestionJobService
 from app.ingestion.pipeline_testing import PipelineNodeTester
 from app.rag import RagAnswerer
-from app.rag.traces import RagTraceStore
 from app.repositories import PgVectorChunkIndex
 from app.repositories.chat_repository import ChatStore
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.trace_repository import TraceRepository
 from app.services import (
     AdminOverviewService,
     AdminService,
@@ -36,6 +36,7 @@ from app.services import (
     SearchService,
     TraceService,
 )
+from app.workers import LocalTaskExecutor, TaskExecutor, WorkerTaskExecutor
 
 
 def get_application_container() -> ApplicationContainer:
@@ -84,7 +85,7 @@ def get_rag_answerer() -> RagAnswerer:
     return get_application_container().rag_answerer
 
 
-def get_rag_trace_store() -> RagTraceStore:
+def get_rag_trace_store() -> TraceRepository:
     return get_application_container().rag_trace_store
 
 
@@ -95,7 +96,7 @@ def get_chat_store() -> ChatStore:
 def get_search_service(
     index: PgVectorChunkIndex = Depends(get_chunk_index),
     answerer: RagAnswerer = Depends(get_rag_answerer),
-    trace_store: RagTraceStore = Depends(get_rag_trace_store),
+    trace_store: TraceRepository = Depends(get_rag_trace_store),
     container: ApplicationContainer = Depends(get_application_container),
 ) -> SearchService:
     if (
@@ -111,7 +112,7 @@ def get_chat_service(
     store: ChatStore = Depends(get_chat_store),
     index: PgVectorChunkIndex = Depends(get_chunk_index),
     answerer: RagAnswerer = Depends(get_rag_answerer),
-    trace_store: RagTraceStore = Depends(get_rag_trace_store),
+    trace_store: TraceRepository = Depends(get_rag_trace_store),
     container: ApplicationContainer = Depends(get_application_container),
 ) -> ChatService:
     if (
@@ -150,8 +151,20 @@ def get_ingestion_service(
     )
 
 
+def get_task_executor(
+    service: IngestionService = Depends(get_ingestion_service),
+    container: ApplicationContainer = Depends(get_application_container),
+) -> TaskExecutor:
+    if _cached(container, "ingestion_service") is service:
+        return container.task_executor
+    mode = container.settings.ingestion.run_mode.strip().lower()
+    if mode == "background":
+        return LocalTaskExecutor(ingestion_service=service)
+    return WorkerTaskExecutor()
+
+
 def get_trace_service(
-    store: RagTraceStore = Depends(get_rag_trace_store),
+    store: TraceRepository = Depends(get_rag_trace_store),
     container: ApplicationContainer = Depends(get_application_container),
 ) -> TraceService:
     if _cached(container, "rag_trace_store") is store:

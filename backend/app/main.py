@@ -5,8 +5,6 @@ Purpose: FastAPI application entrypoint for Docu Search.
 
 from __future__ import annotations
 
-import logging
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,6 +13,7 @@ from app.api.exception_handlers import app_error_handler
 from app.api.middleware import InMemoryRateLimitMiddleware, RequestContextMiddleware
 from app.core.config import AppSettings, get_settings
 from app.core.exceptions import AppError
+from app.core.logging import configure_logging
 from app.lifespan import lifespan
 
 
@@ -47,15 +46,6 @@ def create_app() -> FastAPI:
         }
 
     return app
-
-
-def configure_logging(settings: AppSettings | None = None) -> None:
-    settings = settings or get_settings()
-    logging.basicConfig(
-        level=settings.api.log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-
 
 def cors_origins(settings: AppSettings | None = None) -> list[str]:
     settings = settings or get_settings()
