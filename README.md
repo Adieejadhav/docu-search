@@ -15,62 +15,66 @@ Validate from `backend/`:
 
 ## Docker
 
-Docker is an additional supported run mode; local development still works.
+Docker is the main runtime for this project.
+The commands below assume GNU Make is available in your terminal.
 
 For a prod-like local stack:
 
 ```powershell
-Copy-Item .env.docker.example .env.docker
-docker compose --env-file .env.docker up --build -d
+make build-run
 ```
 
 This starts PostgreSQL/pgvector, runs the one-shot migration service, starts the
 backend on `http://localhost:8000`, and serves the frontend on
 `http://localhost:8080`.
 
-Check status and follow focused logs with:
+Docker uses `.env.docker`. It contains the database password, exposed ports,
+and Ollama connection/model. Other runtime values use defaults from
+`docker-compose.yml` and backend config.
+
+The root `.env` is intentionally kept only for local backend debugging. It
+points the backend at the Docker-exposed PostgreSQL port on `127.0.0.1:55432`.
+
+Docker commands:
 
 ```powershell
-docker compose --env-file .env.docker ps
-docker compose --env-file .env.docker logs -f --tail=100 backend
-docker compose --env-file .env.docker logs -f --tail=100 frontend
-docker compose --env-file .env.docker logs -f --tail=100 migrations
+make build
+make run
+make build-run
 ```
 
-Use `docker compose --env-file .env.docker logs -f --tail=100` only when you
-want all service logs together.
-
-Compose normally appends replica indexes such as `backend-1`. This stack sets
-fixed container names like `docu-search-backend` for more predictable logs.
-Use `--no-log-prefix` when you want only the raw one-line application log:
+Log commands:
 
 ```powershell
-docker compose --env-file .env.docker logs -f --tail=100 --no-log-prefix backend
-docker logs -f --tail=100 docu-search-backend
+make logs-backend
+make logs-frontend
+make logs-postgres
+```
+
+Those map directly to:
+
+```powershell
+docker compose --env-file .env.docker build
+docker compose --env-file .env.docker up
+docker compose --env-file .env.docker up --build
+docker compose --env-file .env.docker logs -f backend
+docker compose --env-file .env.docker logs -f frontend
+docker compose --env-file .env.docker logs -f postgres
 ```
 
 Docker defaults to `LOG_LEVEL=INFO` so normal app request/startup logs are
-visible. Set `LOG_LEVEL=WARNING` in `.env.docker` only when you want quieter
+visible. Add `LOG_LEVEL=WARNING` to `.env.docker` only when you want quieter
 backend logs.
 
-Combined Docker logs are organized but still visible:
-
-- Containers use stable names such as `docu-search-backend`.
-- Frontend access logs use a compact one-line key/value format for API requests.
-- Health checks are hidden from frontend logs.
-- Migration output is a single summary line.
+Raw logs include Postgres startup/error logs, frontend proxy/access logs,
+Uvicorn startup/error logs, backend request logs, external HTTP logs, and
+migrations. Repetitive frontend health-check access logs, Postgres checkpoint
+logs, and duplicate Uvicorn access lines are intentionally removed.
 
 The default Docker env expects Ollama on the host at:
 
 ```text
 http://host.docker.internal:11434
-```
-
-Run the polling ingestion worker with:
-
-```powershell
-docker compose --env-file .env.docker --profile worker up --build -d
-docker compose --env-file .env.docker logs -f --tail=100 worker
 ```
 
 ## Frontend

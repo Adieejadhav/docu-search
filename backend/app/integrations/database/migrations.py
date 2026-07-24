@@ -20,6 +20,7 @@ class MigrationRecord:
     version: str
     name: str
     checksum: str
+    compatible_checksums: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -64,7 +65,7 @@ class SqlMigrationRunner:
                 record = self._record_for_file(migration_file)
                 existing_checksum = existing.get(record.version)
                 if existing_checksum:
-                    if existing_checksum != record.checksum:
+                    if existing_checksum not in record.compatible_checksums:
                         raise RetrievalError(
                             "Applied migration checksum does not match file",
                             code="MIGRATION_CHECKSUM_MISMATCH",
@@ -72,6 +73,15 @@ class SqlMigrationRunner:
                                 "version": record.version,
                                 "name": record.name,
                             },
+                        )
+                    if existing_checksum != record.checksum:
+                        connection.execute(
+                            """
+                            UPDATE schema_migrations
+                            SET checksum = %s
+                            WHERE version = %s
+                            """,
+                            (record.checksum, record.version),
                         )
                     skipped.append(record)
                     continue
@@ -101,10 +111,18 @@ class SqlMigrationRunner:
 
     def _record_for_file(self, path: Path) -> MigrationRecord:
         content = path.read_bytes()
+        canonical_content = _canonical_migration_content(content)
         return MigrationRecord(
             version=path.stem.split("_", 1)[0],
             name=path.name,
-            checksum=hashlib.sha256(content).hexdigest(),
+            checksum=_checksum(canonical_content),
+            compatible_checksums=frozenset(
+                {
+                    _checksum(content),
+                    _checksum(canonical_content),
+                    _checksum(_crlf_migration_content(canonical_content)),
+                }
+            ),
         )
 
     def _connect(self) -> Any:
@@ -136,3 +154,15 @@ class SqlMigrationRunner:
 
 def default_migrations_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "migrations"
+
+
+def _canonical_migration_content(content: bytes) -> bytes:
+    return content.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _crlf_migration_content(content: bytes) -> bytes:
+    return _canonical_migration_content(content).replace(b"\n", b"\r\n")
+
+
+def _checksum(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()

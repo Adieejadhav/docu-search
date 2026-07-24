@@ -1,23 +1,53 @@
-.PHONY: test db-up db-down db-logs ingest-corpus index-corpus query-corpus
+COMPOSE := docker compose --env-file .env.docker
 
-test:
-	cd backend && python -m pytest
+.PHONY: help build run build-run logs logs-backend logs-frontend logs-postgres
 
-db-up:
-	docker compose up -d postgres
+help:
+	@echo "Docu Search Docker commands"
+	@echo ""
+	@echo "Build:"
+	@echo "  make build"
+	@echo "    docker compose --env-file .env.docker build"
+	@echo ""
+	@echo "Run:"
+	@echo "  make run"
+	@echo "    docker compose --env-file .env.docker up"
+	@echo ""
+	@echo "Build and run:"
+	@echo "  make build-run"
+	@echo "    docker compose --env-file .env.docker up --build"
+	@echo ""
+	@echo "Logs:"
+	@echo "  make logs"
+	@echo "    docker compose --env-file .env.docker logs -f"
+	@echo ""
+	@echo "  make logs-backend"
+	@echo "    docker compose --env-file .env.docker logs -f backend"
+	@echo ""
+	@echo "  make logs-frontend"
+	@echo "    docker compose --env-file .env.docker logs -f frontend"
+	@echo ""
+	@echo "  make logs-postgres"
+	@echo "    docker compose --env-file .env.docker logs -f postgres"
+	@echo ""
 
-db-down:
-	docker compose down
+build:
+	$(COMPOSE) build
 
-db-logs:
-	docker compose logs -f postgres
+run:
+	$(COMPOSE) up
 
-ingest-corpus:
-	@if [ -z "$(SOURCE_DIR)" ]; then echo "Set SOURCE_DIR to the raw source document folder."; exit 1; fi
-	cd backend && python -m app.cli.ingest_documents "$(SOURCE_DIR)" --recursive --clear-index --chunks-output-json "..\storage\rag_robust_format_test_corpus.chunks.json"
+build-run:
+	$(COMPOSE) up --build
 
-index-corpus:
-	cd backend && python -m app.cli.index_chunks "..\storage\rag_robust_format_test_corpus.chunks.json" --clear
+logs:
+	$(COMPOSE) logs -f
 
-query-corpus:
-	cd backend && python -m app.cli.query_index "satellite mode exception 14 days" --top-k 5 --show-parent
+logs-backend:
+	$(COMPOSE) logs -f backend
+
+logs-frontend:
+	$(COMPOSE) logs -f frontend
+
+logs-postgres:
+	$(COMPOSE) logs -f postgres

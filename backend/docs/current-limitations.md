@@ -6,9 +6,7 @@
 process. This is process-local and is not durable across process exits or
 deploy restarts.
 
-`INGESTION_RUN_MODE=worker` leaves jobs queued for the polling worker process.
-The job records are stored in PostgreSQL, but there is no external queue such as
-Redis, RabbitMQ, or SQS.
+There is no external queue such as Redis, RabbitMQ, or SQS.
 
 ## Authentication
 

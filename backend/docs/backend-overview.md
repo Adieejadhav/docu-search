@@ -48,8 +48,7 @@ startup checks.
 `app/lifespan.py` attaches the container, records startup checks, and closes
 shared resources.
 
-`app/workers` contains the local/worker task execution boundary and the polling
-worker.
+`app/workers` contains the task execution boundary for background ingestion.
 
 `app/observability` owns in-process operation metrics. Compatibility imports
 remain in `app.core.observability`.
@@ -124,7 +123,6 @@ postgres    pgvector PostgreSQL
 migrations  one-shot SQL migration runner
 backend     FastAPI API process
 frontend    Nginx static frontend + /api proxy
-worker      optional queued ingestion worker profile
 ```
 
 Docker uses an internal database URL:

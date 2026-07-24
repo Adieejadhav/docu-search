@@ -24,23 +24,21 @@ Start with:
 - `docs/backend-overview.md`
 - `docs/current-limitations.md`
 
-Background ingestion is process-local in `background` mode and queued for the
-polling worker in `worker` mode. No external durable queue is implemented.
+Background ingestion runs in the API process. No external durable queue is
+implemented.
 
 ## Docker Notes
 
 The backend runtime services are built from the same backend Dockerfile. Docker
-shares cached layers across `migrations`, `backend`, and the optional `worker`.
+shares cached layers across `migrations` and `backend`.
 
 Useful commands from the repository root:
 
 ```powershell
-docker compose --env-file .env.docker build backend
-docker compose --env-file .env.docker run --rm migrations
-docker compose --env-file .env.docker up --build -d backend
-docker compose --env-file .env.docker logs -f --tail=100 backend
-docker compose --env-file .env.docker --profile worker up -d worker
-docker compose --env-file .env.docker logs -f --tail=100 worker
+make build
+make run
+make build-run
+make logs-backend
 ```
 
 Inside Docker, `DATABASE_URL` must point at the Compose service name
